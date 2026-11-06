@@ -37,8 +37,8 @@ jobs:
           cp ../manifest.json www/
           cp ../icon.svg www/ 2>/dev/null || true
           
-          # Aceptar licencias del SDK automáticamente antes de añadir Android
-          yes | sdkmanager --licenses || true
+          # Aceptar licencias usando la ruta completa del SDK
+          yes | /cmdline-tools/latest/bin/sdkmanager --licenses || true
           
           cordova platform add android
           cordova build android --debug
