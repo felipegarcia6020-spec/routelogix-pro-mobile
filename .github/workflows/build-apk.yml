@@ -22,16 +22,24 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Create Cordova Android Project Wrapper
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Build Cordova APK
         run: |
           npm install -g cordova
-          cordova create myapp com.routelogix.pro RouteLogixPro --src=www || true
+          cordova create myapp com.routelogix.pro RouteLogixPro
           cd myapp
           rm -rf www/*
-          cp -r ../index.html ../manifest.json ../icon.svg ./www/ 2>/dev/null || true
-          # Copia alternativa si los archivos están sueltos
-          cp ../index.html www/index.html
-          cp ../manifest.json www/manifest.json
+          cp ../index.html www/
+          cp ../manifest.json www/
+          cp ../icon.svg www/ 2>/dev/null || true
+          
+          # Aceptar licencias del SDK automáticamente antes de añadir Android
+          yes | sdkmanager --licenses || true
+          
           cordova platform add android
           cordova build android --debug
 
