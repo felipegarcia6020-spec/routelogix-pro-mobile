@@ -1,16 +1,16 @@
 {
-  "name": "RouteLogix Pro Mobile",
+  "name": "RouteLogix Pro",
   "short_name": "RouteLogix",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#030712",
-  "theme_color": "#030712",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "https://raw.githubusercontent.com/felipegarcia6020-spec/routelogix-pro-mobile/main/icon.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]
