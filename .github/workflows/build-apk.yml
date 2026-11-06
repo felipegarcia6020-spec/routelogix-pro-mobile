@@ -1,0 +1,25 @@
+﻿name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build artifact package
+        run: |
+          mkdir -p output
+          zip -r output/RouteLogixPro-Debug-APK.zip index.html manifest.json icon.svg
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RouteLogixPro-Debug-APK
+          path: output/RouteLogixPro-Debug-APK.zip
