@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="100" fill="#030712"/>
+  <circle cx="256" cy="256" r="230" fill="none" stroke="#06b6d4" stroke-width="4" stroke-opacity="0.3"/>
+  
+  <!-- Outer Glow Hexagon -->
+  <polygon points="256,60 416,150 416,360 256,450 96,360 96,150" fill="#0f172a" stroke="#06b6d4" stroke-width="12" stroke-linejoin="round"/>
+  
+  <!-- Cyberpunk Neon Route Lines -->
+  <path d="M 160 340 C 200 220, 300 320, 350 180" fill="none" stroke="#3b82f6" stroke-width="16" stroke-linecap="round"/>
+  <path d="M 160 340 C 200 220, 300 320, 350 180" fill="none" stroke="#06b6d4" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- Waypoints Nodes -->
+  <circle cx="160" cy="340" r="22" fill="#10b981" stroke="#ffffff" stroke-width="6"/>
+  <circle cx="250" cy="270" r="16" fill="#3b82f6" stroke="#ffffff" stroke-width="5"/>
+  <circle cx="350" cy="180" r="26" fill="#f43f5e" stroke="#ffffff" stroke-width="6"/>
+  
+  <!-- Center Glow Pulse -->
+  <circle cx="350" cy="180" r="8" fill="#ffffff"/>
+</svg>
