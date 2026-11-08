@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>RouteLogix Pro</title>
+
+    <!-- Configuración para PWA y Móviles -->
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- CSS Principal -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+</head>
+<body>
+    <div class="app-container">
+        <!-- Mapa Leaflet -->
+        <div id="map"></div>
+
+        <!-- Panel Lateral / Paradas -->
+        <div class="sidebar">
+            <header class="sidebar-header">
+                <h2>RouteLogix Pro</h2>
+                <div class="header-actions">
+                    <button id="btn-import">Importar .bin</button>
+                    <button id="btn-add">Añadir Parada</button>
+                </div>
+            </header>
+            <div class="sidebar-content">
+                <h3>PARADAS DE LA RUTA (0)</h3>
+                <p class="placeholder-text">Mueve el mapa y presiona "Añadir Parada" o importa un archivo .bin de Routin.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="app.js"></script>
+
+    <!-- Registro del Service Worker para PWA -->
+    <script>
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', () => {
+                        navigator.serviceWorker.register('./sw.js')
+                            .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
+                            .catch(err => console.log('Error al registrar el Service Worker:', err));
+                    });
+                }
+    </script>
+</body>
+</html>

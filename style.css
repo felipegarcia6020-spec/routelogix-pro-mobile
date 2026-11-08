@@ -1,0 +1,129 @@
+/* Reseteo global seguro adaptado a móviles modernos */
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #0a0a0a;
+  color: #ffffff;
+  /* Evita el zoom por doble toque y el comportamiento elástico del scroll en iOS */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+/* Contenedor principal en pantalla completa usando unidades dinámicas (dvh) */
+.app-container {
+  display: flex;
+  flex-direction: row;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh; /* Soluciona el problema de la barra de direcciones en móviles */
+  position: relative;
+  overflow: hidden;
+}
+
+/* Mapa Leaflet */
+#map {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  z-index: 1;
+}
+
+/* Panel lateral de rutas */
+.sidebar {
+  width: 380px;
+  min-width: 300px;
+  height: 100%;
+  background-color: #121212;
+  border-left: 1px solid #222;
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow: hidden; /* Evita scrolls dobles en el contenedor padre */
+}
+
+.sidebar-header {
+  padding: 16px;
+  background-color: #18181b;
+  border-bottom: 1px solid #27272a;
+  flex-shrink: 0; /* Impide que el header se comprima */
+}
+
+.sidebar-header h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.25rem;
+  color: #2563eb;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.header-actions button {
+  flex: 1;
+  padding: 10px 12px; /* Ligeramente más alto para facilitar la pulsación táctil */
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.header-actions button:active {
+  background-color: #1d4ed8; /* Feedback visual al tocar en móviles */
+}
+
+.sidebar-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch; /* Scroll fluido inercial en iOS */
+}
+
+.sidebar-content h3 {
+  font-size: 0.9rem;
+  color: #a1a1aa;
+  margin-bottom: 12px;
+}
+
+.placeholder-text {
+  color: #71717a;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Adaptación responsive para celulares (pantallas verticales) */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column-reverse; /* Mapa arriba, panel abajo */
+  }
+
+  #map {
+    width: 100vw;
+    height: 55vh; /* Ajustado para dar un poco más de espacio al panel de paradas */
+  }
+
+  .sidebar {
+    width: 100vw;
+    height: 45vh;
+    border-left: none;
+    border-top: 1px solid #222;
+    /* Bordes superiores redondeados estilo "BottomSheet" nativo */
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.5);
+  }
+}
