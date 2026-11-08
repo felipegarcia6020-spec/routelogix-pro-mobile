@@ -1,16 +1,32 @@
-const CACHE_NAME = 'routelogix-cache-v1';
+const CACHE_NAME = 'routelogix-cache-v2';
 const assetsToCache = [
   './',
   './index.html',
   './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://unpkg.com/lucide@latest'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(assetsToCache);
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => {
+      return Promise.all(
+        keys.map(key => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
     })
   );
 });
@@ -20,7 +36,6 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(response => {
       return response || fetch(event.request).then(fetchResponse => {
         return caches.open(CACHE_NAME).then(cache => {
-          // Cachear dinámicamente las teselas del mapa conforme se navega
           if (event.request.url.includes('tile.openstreetmap.org')) {
             cache.put(event.request, fetchResponse.clone());
           }
@@ -28,10 +43,12 @@ self.addEventListener('fetch', event => {
         });
       });
     }).catch(() => {
-      // Fallback si no hay red y el recurso no está en caché
       if (event.request.mode === 'navigate') {
         return caches.match('./index.html');
       }
     })
   );
 });
+```[cite: 3]
+
+Guarda este código con el nombre exacto de **`sw.js`** en la carpeta raíz de tu proyecto junto al `index.html` y el `manifest.json`.

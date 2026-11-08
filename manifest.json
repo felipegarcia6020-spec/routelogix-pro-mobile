@@ -26,7 +26,7 @@
 ---
 
 ### 2. `sw.js` (Service Worker)
-Actualizado para cachear los recursos estáticos, la interfaz y las teselas del mapa de OpenStreetMap permitiendo funcionamiento sin conexión (*offline*):
+Controlador de caché para que la aplicación funcione offline y guarde dinámicamente los mapas y recursos:
 
 ```javascript
 const CACHE_NAME = 'routelogix-cache-v2';
@@ -80,3 +80,14 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+```[cite: 3]
+
+---
+
+### Siguientes pasos para actualizar tu repositorio en GitHub:
+Abre tu terminal en la carpeta del proyecto y ejecuta:
+
+```bash
+git add .
+git commit -m "Actualizar index unificado y archivos de soporte PWA"
+git push origin main --force
