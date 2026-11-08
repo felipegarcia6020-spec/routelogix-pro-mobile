@@ -3,349 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RouteLogix Pro - Gestor de Rutas y Caja</title>
+    <title>RouteLogix Pro & Routin - Sistema TaT Unificado</title>
 
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#020617">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" href="./launchericon-192x192.png">
+    <link rel="icon" type="image/png" href="./icon.png">
 
-    <!-- Leaflet CSS -->
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #0a0a0a;
-            color: #ffffff;
-        }
-
-        .app-container {
-            display: flex;
-            flex-direction: row;
-            width: 100vw;
-            height: 100vh;
-            height: 100dvh;
-            position: relative;
-        }
-
-        /* Mapa y Cursor de Apunte (Punto 1 y 5) */
-        #map-wrapper {
-            flex: 1;
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        #map {
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        /* Mira / Cursor central exacto (Punto 1) */
-        .map-crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 24px;
-            height: 24px;
-            pointer-events: none;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-            .map-crosshair::before, .map-crosshair::after {
-                content: '';
-                position: absolute;
-                background-color: #3b82f6;
-                box-shadow: 0 0 4px rgba(0,0,0,0.8);
-            }
-
-            .map-crosshair::before {
-                width: 24px;
-                height: 2px;
-            }
-
-            .map-crosshair::after {
-                width: 2px;
-                height: 24px;
-            }
-
-        /* Botón flotante GPS (Punto 2 y 5) */
-        .gps-fab {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            z-index: 1000;
-            background-color: #1e293b;
-            color: #38bdf8;
-            border: 1px solid #3b82f6;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            font-size: 1.2rem;
-        }
-
-        /* Panel Lateral Clásico (Derecha) */
-        .sidebar {
-            width: 420px;
-            min-width: 320px;
-            height: 100%;
-            background-color: #121212;
-            border-left: 1px solid #222;
-            display: flex;
-            flex-direction: column;
-            z-index: 1001;
-            box-shadow: -4px 0 15px rgba(0,0,0,0.4);
-        }
-
-        .sidebar-header {
-            padding: 16px;
-            background-color: #18181b;
-            border-bottom: 1px solid #27272a;
-        }
-
-            .sidebar-header h2 {
-                margin: 0 0 10px 0;
-                font-size: 1.2rem;
-                color: #3b82f6;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-
-        .header-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-            .header-actions button {
-                flex: 1;
-                padding: 8px 10px;
-                background-color: #2563eb;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-weight: 600;
-                font-size: 0.8rem;
-                cursor: pointer;
-                transition: background 0.2s;
-            }
-
-                .header-actions button:hover {
-                    background-color: #1d4ed8;
-                }
-
-                .header-actions button.secondary {
-                    background-color: #334155;
-                }
-
-        /* Pestañas de Navegación del Panel (Rutas / Agenda) */
-        .panel-tabs {
-            display: flex;
-            background-color: #18181b;
-            border-bottom: 1px solid #27272a;
-        }
-
-        .panel-tab {
-            flex: 1;
-            padding: 10px;
-            text-align: center;
-            font-size: 0.85rem;
-            color: #94a3b8;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-        }
-
-            .panel-tab.active {
-                color: #38bdf8;
-                border-bottom-color: #38bdf8;
-                font-weight: bold;
-            }
-
-        .sidebar-content {
-            padding: 16px;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        /* Tarjetas de Paradas y Agenda */
-        .stop-card, .agenda-card {
-            background-color: #1e1e24;
-            border: 1px solid #2a2a32;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
-            position: relative;
-        }
-
-            .stop-card h4, .agenda-card h4 {
-                font-size: 0.95rem;
-                color: #f8fafc;
-                margin-bottom: 4px;
-            }
-
-            .stop-card p, .agenda-card p {
-                font-size: 0.8rem;
-                color: #94a3b8;
-                margin-bottom: 6px;
-            }
-
-        .card-actions {
-            display: flex;
-            gap: 6px;
-            margin-top: 8px;
-        }
-
-            .card-actions button {
-                padding: 4px 8px;
-                font-size: 0.75rem;
-                border-radius: 4px;
-                border: none;
-                cursor: pointer;
-            }
-
-        .btn-delete {
-            background-color: #7f1d1d;
-            color: #fca5a5;
-        }
-
-        .btn-status {
-            background-color: #065f46;
-            color: #6ee7b7;
-        }
-
-        /* Modal de Registro / Parada */
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .modal-content {
-            background: #18181b;
-            border: 1px solid #3f3f46;
-            padding: 20px;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 380px;
-        }
-
-            .modal-content h3 {
-                margin-bottom: 12px;
-                font-size: 1.1rem;
-                color: #38bdf8;
-            }
-
-            .modal-content input {
-                width: 100%;
-                padding: 10px;
-                margin-bottom: 10px;
-                background: #09090b;
-                border: 1px solid #27272a;
-                color: white;
-                border-radius: 6px;
-                font-size: 0.9rem;
-            }
-
-        @media (max-width: 768px) {
-            .app-container {
-                flex-direction: column-reverse;
-            }
-
-            #map-wrapper {
-                height: 50vh;
-            }
-
-            .sidebar {
-                width: 100vw;
-                height: 50vh;
-            }
-        }
-    </style>
+    <!-- FontAwesome & Custom CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 
     <div class="app-container">
-        <!-- MAPA Y CONTROLES GPS (Puntos 1, 2, 5, 9) -->
+        <!-- MAPA Y CONTROLES GPS (Requisito 1, 2, 5, 9) -->
         <div id="map-wrapper">
             <div id="map"></div>
+            <!-- Cursor / Mira central de precisión (Requisito 1) -->
             <div class="map-crosshair" title="Punto exacto de puntería"></div>
+            <!-- Botón flotante GPS y indicador (Requisito 2 y 5) -->
             <button class="gps-fab" onclick="centrarGPS()" title="Mi ubicación GPS">📍</button>
         </div>
 
-        <!-- PANEL LATERAL CLÁSICO (Puntos 3, 4, 6, 7, 10) -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <h2>
-                    <span>RouteLogix Pro</span>
-                    <span id="user-badge" style="font-size:0.7rem; color:#10b981;">● Online</span>
+        <!-- PANEL LATERAL DE CONTROL OPERATIVO -->
+        <div class="sidebar" style="width: 440px; min-width: 320px; background-color: #0f172a; border-left: 1px solid #1e293b; display: flex; flex-direction: column; z-index: 1001;">
+            <div class="sidebar-header" style="padding: 16px; background-color: #020617; border-bottom: 1px solid #1e293b;">
+                <h2 style="margin: 0 0 10px 0; font-size: 1.15rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
+                    <span>RouteLogix Pro & Routin</span>
+                    <span id="header-net-badge" style="font-size:0.8rem; color:#10b981; font-weight:bold;">$0</span>
                 </h2>
-                <div class="header-actions">
-                    <button onclick="document.getElementById('file-bin-input').click()">📁 Importar .bin / Routin</button>
-                    <button onclick="abrirModalParadaCentro()">+ Añadir Parada</button>
-                    <button class="secondary" onclick="optimizarRuta()">⚡ Optimizar</button>
-                    <button class="secondary" onclick="borrarRutaActiva()">🗑️ Borrar Ruta</button>
+                <div class="header-actions" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button onclick="document.getElementById('file-bin-input').click()" style="flex:1; padding:8px; background:#2563eb; color:white; border:none; border-radius:6px; font-weight:600; font-size:0.75rem; cursor:pointer;">📁 Importar .bin</button>
+                    <button onclick="abrirModalParadaCentro()" style="flex:1; padding:8px; background:#059669; color:white; border:none; border-radius:6px; font-weight:600; font-size:0.75rem; cursor:pointer;">+ Añadir Parada</button>
+                    <button onclick="optimizarRuta()" style="padding:8px 10px; background:#475569; color:white; border:none; border-radius:6px; font-weight:600; font-size:0.75rem; cursor:pointer;" title="Optimizar ruta">⚡ Optimizar</button>
+                    <button onclick="borrarRutaActiva()" style="padding:8px 10px; background:#7f1d1d; color:#fca5a5; border:none; border-radius:6px; font-weight:600; font-size:0.75rem; cursor:pointer;" title="Borrar ruta">🗑️</button>
                 </div>
                 <input type="file" id="file-bin-input" style="display:none" accept=".bin,.json" onchange="importarArchivoRoutin(event)">
             </div>
 
-            <!-- Pestañas de Vistas (Rutas / Agenda - Punto 3) -->
-            <div class="panel-tabs">
-                <div class="panel-tab active" id="tab-btn-rutas" onclick="cambiarPestana('rutas')">Paradas y Ruta</div>
-                <div class="panel-tab" id="tab-btn-agenda" onclick="cambiarPestana('agenda')">Agenda de Clientes</div>
-                <div class="panel-tab" id="tab-btn-registro" onclick="cambiarPestana('registro')">Registro de Actividad</div>
+            <!-- Pestañas de Navegación del Panel (Requisito 3 - Agenda, Rutas, Finanzas, Registro) -->
+            <div class="panel-tabs" style="display: flex; background: #020617; border-bottom: 1px solid #1e293b;">
+                <div class="panel-tab active" id="tab-btn-rutas" onclick="cambiarPestana('rutas')" style="flex:1; padding:10px; text-align:center; font-size:0.75rem; color:#94a3b8; cursor:pointer;">Ruta</div>
+                <div class="panel-tab" id="tab-btn-agenda" onclick="cambiarPestana('agenda')" style="flex:1; padding:10px; text-align:center; font-size:0.75rem; color:#94a3b8; cursor:pointer;">Agenda</div>
+                <div class="panel-tab" id="tab-btn-finanzas" onclick="cambiarPestana('finanzas')" style="flex:1; padding:10px; text-align:center; font-size:0.75rem; color:#94a3b8; cursor:pointer;">Finanzas</div>
+                <div class="panel-tab" id="tab-btn-registro" onclick="cambiarPestana('registro')" style="flex:1; padding:10px; text-align:center; font-size:0.75rem; color:#94a3b8; cursor:pointer;">Registro</div>
             </div>
 
-            <div class="sidebar-content" id="sidebar-pane-rutas">
-                <h3 style="font-size: 0.85rem; color: #a1a1aa; margin-bottom: 10px;">PARADAS DE LA RUTA ACTUAL</h3>
-                <div id="lista-paradas"></div>
+            <div class="sidebar-content" id="sidebar-pane-rutas" style="padding: 16px; overflow-y: auto; flex: 1;">
+                <h3 style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase;">Paradas de la Ruta Activa</h3>
+                <div id="lista-paradas">
+                    <!-- Dinámico por app.js -->
+                </div>
             </div>
 
-            <div class="sidebar-content" id="sidebar-pane-agenda" style="display:none;">
-                <h3 style="font-size: 0.85rem; color: #a1a1aa; margin-bottom: 10px;">AGENDA GENERAL DE CLIENTES</h3>
+            <div class="sidebar-content" id="sidebar-pane-agenda" style="padding: 16px; overflow-y: auto; flex: 1; display:none;">
+                <h3 style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase;">Agenda de Clientes (Requisito 3)</h3>
                 <div id="lista-agenda"></div>
             </div>
 
-            <div class="sidebar-content" id="sidebar-pane-registro" style="display:none;">
-                <h3 style="font-size: 0.85rem; color: #a1a1aa; margin-bottom: 10px;">REGISTRO DE OPERACIÓN Y SESIÓN (Punto 7)</h3>
-                <div id="lista-registro" style="font-size: 0.8rem; font-family: monospace; color: #38bdf8;"></div>
+            <div class="sidebar-content" id="sidebar-pane-finanzas" style="padding: 16px; overflow-y: auto; flex: 1; display:none;">
+                <h3 style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase;">Control de Dinero & Caja</h3>
+                <div id="denominations-container"></div>
+                <h3 style="font-size: 0.8rem; color: #94a3b8; margin: 15px 0 10px 0; text-transform: uppercase;">Gastos de Ruta</h3>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="expense-concept" placeholder="Concepto" class="flex-1 bg-neutral-950 border border-neutral-800 text-xs p-2 rounded text-white">
+                    <input type="number" id="expense-amount" placeholder="Monto" class="w-24 bg-neutral-950 border border-neutral-800 text-xs p-2 rounded text-white">
+                    <button onclick="addExpense()" class="bg-rose-600 text-white px-3 py-2 rounded text-xs font-bold">+</button>
+                </div>
+                <div id="expenses-list"></div>
+            </div>
+
+            <div class="sidebar-content" id="sidebar-pane-registro" style="padding: 16px; overflow-y: auto; flex: 1; display:none;">
+                <h3 style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase;">Registro de Actividad (Requisito 7)</h3>
+                <div id="lista-registro" style="font-size: 0.75rem; font-family: monospace; color: #38bdf8; line-height: 1.4;"></div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL PARA AÑADIR PARADA -->
-    <div class="modal" id="modal-parada">
-        <div class="modal-content">
-            <h3>Nueva Parada en el Punto</h3>
-            <input type="text" id="parada-nombre" placeholder="Nombre del cliente o negocio">
-            <input type="text" id="parada-direccion" placeholder="Dirección o referencia">
-            <input type="number" id="parada-valor" placeholder="Monto a cobrar ($)">
+    <!-- MODAL NUEVA PARADA -->
+    <div class="modal" id="modal-parada" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center; padding:20px;">
+        <div class="modal-content" style="background:#0f172a; border:1px solid #334155; padding:20px; border-radius:12px; width:100%; max-width:380px;">
+            <h3 style="margin-bottom:12px; font-size:1.1rem; color:#38bdf8;">Nueva Parada en el Mapa</h3>
+            <input type="text" id="parada-nombre" placeholder="Nombre del cliente o negocio" style="width:100%; padding:10px; margin-bottom:10px; background:#020617; border:1px solid #1e293b; color:white; border-radius:6px; font-size:0.9rem;">
+            <input type="text" id="parada-direccion" placeholder="Dirección o referencia" style="width:100%; padding:10px; margin-bottom:10px; background:#020617; border:1px solid #1e293b; color:white; border-radius:6px; font-size:0.9rem;">
+            <input type="number" id="parada-valor" placeholder="Monto a cobrar ($)" style="width:100%; padding:10px; margin-bottom:15px; background:#020617; border:1px solid #1e293b; color:white; border-radius:6px; font-size:0.9rem;">
             <div style="display:flex; gap:8px;">
                 <button onclick="guardarNuevaParada()" style="flex:1; padding:10px; background:#2563eb; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Guardar</button>
                 <button onclick="cerrarModal()" style="flex:1; padding:10px; background:#334155; color:white; border:none; border-radius:6px; cursor:pointer;">Cancelar</button>
@@ -353,192 +103,7 @@
         </div>
     </div>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
-    <!-- SCRIPT PRINCIPAL DE LOGICA Y FUNCIONES -->
-    <script>
-                let map, gpsMarker;
-                let watchId = null;
-                let datosApp = {
-                    rutaActiva: {
-                        nombre: "Ruta Principal",
-                        paradas: [
-                            { id: 1, lat: 4.6097, lng: -74.0817, nombre: "Supermercado Central", direccion: "Carrera 7 # 12", valor: 120000, estado: "pendiente" },
-                            { id: 2, lat: 4.6200, lng: -74.0700, nombre: "Tienda La Esperanza", direccion: "Calle 26 # 14", valor: 85000, estado: "pendiente" }
-                        ]
-                    },
-                    agenda: [],
-                    registro: []
-                };
-
-                let marcadoresMapa = [];
-
-                window.onload = function() {
-                    cargarLocalStorage();
-                    initMap();
-                    iniciarGPSRealTime();
-                    registrarLog("Aplicación iniciada correctamente en modo operativo.");
-                };
-
-                function registrarLog(texto) {
-                    const timestamp = new Date().toLocaleTimeString();
-                    datosApp.registro.unshift(`[${timestamp}] ${texto}`);
-                    if(datosApp.registro.length > 50) datosApp.registro.pop();
-                    guardarLocalStorage();
-                    actualizarVistaRegistro();
-                }
-
-                function initMap() {
-                    map = L.map('map', { zoomControl: false }).setView([4.6097, -74.0817], 14);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        maxZoom: 19,
-                        attribution: '&copy; OpenStreetMap'
-                    }).addTo(map);
-                    L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-                    renderizarParadasMapa();
-                }
-
-                /* GPS Real Time & Indicador (Punto 2 y 5) */
-                function iniciarGPSRealTime() {
-                    if ("geolocation" in navigator) {
-                        watchId = navigator.geolocation.watchPosition(
-                            (position) => {
-                                const lat = position.coords.latitude;
-                                const lng = position.coords.longitude;
-
-                                if (!gpsMarker) {
-                                    const gpsIcon = L.divIcon({
-                                        className: 'gps-dot',
-                                        html: '<div style="width:16px;height:16px;background:#3b82f6;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 10px #38bdf8;"></div>',
-                                        iconSize: [16, 16]
-                                    });
-                                    gpsMarker = L.marker([lat, lng], {icon: gpsIcon}).addTo(map).bindPopup("Tu ubicación GPS actual");
-                                } else {
-                                    gpsMarker.setLatLng([lat, lng]);
-                                }
-                            },
-                            (error) => { console.warn("Error GPS: ", error.message); },
-                            { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-                        );
-                    }
-                }
-
-                function centrarGPS() {
-                    if (gpsMarker) {
-                        map.setView(gpsMarker.getLatLng(), 16);
-                        registrarLog("Mapa centrado en posición GPS.");
-                    } else {
-                        alert("Obteniendo señal GPS...");
-                    }
-                }
-
-                /* Renderizar Paradas en Mapa con Badges Numéricos */
-                function renderizarParadasMapa() {
-                    marcadoresMapa.forEach(m => map.removeLayer(m));
-                    marcadoresMapa = [];
-
-                    const paradas = datosApp.rutaActiva.paradas;
-                    const latlngs = [];
-
-                    paradas.forEach((p, idx) => {
-                        latlngs.push([p.lat, p.lng]);
-                        const badgeColor = p.estado === 'completado' ? '#10b981' : '#3b82f6';
-                        const icon = L.divIcon({
-                            className: 'custom-pin',
-                            html: `<div style="background:${badgeColor};color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.5);">${idx+1}</div>`,
-                            iconSize: [28, 28],
-                            iconAnchor: [14, 14]
-                        });
-
-                        const marker = L.marker([p.lat, p.lng], {icon}).addTo(map)
-                            .bindPopup(`<b>${p.nombre}</b><br>${p.direccion}<br>Valor: $${p.valor.toLocaleString()}`);
-                        marcadoresMapa.push(marker);
-                    });
-
-                    if (latlngs.length > 1) {
-                        const polyline = L.polyline(latlngs, {color: '#38bdf8', weight: 4, opacity: 0.7}).addTo(map);
-                        marcadoresMapa.push(polyline);
-                    }
-
-                    renderizarListasUI();
-                }
-
-                /* Actualizar listas HTML en panel lateral (Punto 3 y 4) */
-                function renderizarListasUI() {
-                    const containerParadas = document.getElementById('lista-paradas');
-                    containerParadas.innerHTML = '';
-
-                    datosApp.rutaActiva.paradas.forEach((p, idx) => {
-                        const card = document.createElement('div');
-                        card.className = 'stop-card';
-                        card.innerHTML = `
-                            <h4>${idx+1}. ${p.nombre}</h4>
-                            <p>${p.direccion || 'Sin dirección'} | <b>$${(p.valor||0).toLocaleString()}</b></p>
-                            <div class="card-actions">
-                                <button class="btn-status" onclick="alternarEstadoParada(${p.id})">${p.estado === 'completado' ? 'Cobrado ✓' : 'Cobrar'}</button>
-                                <button class="btn-delete" onclick="borrarParada(${p.id})">Eliminar</button>
-                            </div>
-                        `;
-                        containerParadas.appendChild(card);
-                    });
-
-                    // Agenda (Punto 3)
-                    const containerAgenda = document.getElementById('lista-agenda');
-                    containerAgenda.innerHTML = '';
-                    const agendaUnica = [...new Map([...datosApp.agenda, ...datosApp.rutaActiva.paradas.map(p=>({nombre:p.nombre, direccion:p.direccion}))].map(item => [item.nombre, item])).values()];
-
-                    agendaUnica.forEach(cli => {
-                        const card = document.createElement('div');
-                        card.className = 'agenda-card';
-                        card.innerHTML = `
-                            <h4>${cli.nombre}</h4>
-                            <p>${cli.direccion || 'Sin dirección registrada'}</p>
-                        `;
-                        containerAgenda.appendChild(card);
-                    });
-                }
-
-                /* Borrar Paradas y Rutas (Punto 4) */
-                function borrarParada(id) {
-                    datosApp.rutaActiva.paradas = datosApp.rutaActiva.paradas.filter(p => p.id !== id);
-                    guardarLocalStorage();
-                    renderizarParadasMapa();
-                    registrarLog(`Parada ID ${id} eliminada.`);
-                }
-
-                function borrarRutaActiva() {
-                    if(confirm("¿Estás seguro de vaciar toda la ruta actual?")) {
-                        datosApp.rutaActiva.paradas = [];
-                        guardarLocalStorage();
-                        renderizarParadasMapa();
-                        registrarLog("Ruta activa limpiada por completo.");
-                    }
-                }
-
-                /* Abrir modal de parada usando el centro de la mira del mapa (Punto 1) */
-                function abrirModalParadaCentro() {
-                    const centro = map.getCenter();
-                    window.tempLat = centro.lat;
-                    window.tempLng = centro.lng;
-                    document.getElementById('parada-nombre').value = '';
-                    document.getElementById('parada-direccion').value = '';
-                    document.getElementById('parada-valor').value = '';
-                    document.getElementById('modal-parada').style.display = 'flex';
-                }
-
-                function cerrarModal() {
-                    document.getElementById('modal-parada').style.display = 'none';
-                }
-
-                function guardarNuevaParada() {
-                    const nombre = document.getElementById('parada-nombre').value.trim();
-                    const direccion = document.getElementById('parada-direccion').value.trim();
-                    const valor = parseFloat(document.getElementById('parada-valor').value) || 0;
-
-                    if(!nombre) { alert("Ingresa un nombre"); return; }
-
-                    const nueva = {
-                        id: Date.now(),
-                        lat: window.tempLat,
+    <!-- Script principal unificado -->
+    <script src="./app.js"></script>
+</body>
+</html>

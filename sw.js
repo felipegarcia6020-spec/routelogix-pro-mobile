@@ -1,10 +1,15 @@
-const CACHE_NAME = 'routelogix-offline-v3';
+const CACHE_NAME = 'routelogix-routin-v3';
 const assetsToCache = [
   './',
   './index.html',
+  './app.js',
+  './style.css',
   './manifest.json',
+  './icon.png',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+  'https://unpkg.com/lucide@latest'
 ];
 
 self.addEventListener('install', event => {
@@ -35,7 +40,6 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(response => {
       return response || fetch(event.request).then(fetchResponse => {
         return caches.open(CACHE_NAME).then(cache => {
-          // Guarda automáticamente las teselas del mapa visitadas para uso offline (Punto 9)
           if (event.request.url.includes('tile.openstreetmap.org')) {
             cache.put(event.request, fetchResponse.clone());
           }
