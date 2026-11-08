@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>RouteLogix Pro</title>
 
-    <!-- Configuración para PWA y Móviles -->
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -46,8 +45,8 @@
                 if ('serviceWorker' in navigator) {
                     window.addEventListener('load', () => {
                         navigator.serviceWorker.register('./sw.js')
-                            .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
-                            .catch(err => console.log('Error al registrar el Service Worker:', err));
+                            .then(reg => console.log('Service Worker registrado:', reg.scope))
+                            .catch(err => console.log('Error al registrar SW:', err));
                     });
                 }
     </script>
