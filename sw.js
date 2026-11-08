@@ -1,19 +1,21 @@
-const CACHE_NAME = 'routelogix-routin-mobile-v3';
-const assetsToCache = [
+const CACHE_NAME = 'routelogix-pro-v5';
+const coreAssets = [
   './',
   './index.html',
   './app.js',
   './style.css',
   './manifest.json',
-  './icon.png',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://unpkg.com/lucide@latest'
+  './icon.png'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(assetsToCache))
+    caches.open(CACHE_NAME).then(cache => {
+      // Precarga segura de archivos locales para evitar fallos de instalación
+      return cache.addAll(coreAssets).catch(err => {
+        console.warn('Advertencia en caché de archivos:', err);
+      });
+    })
   );
   self.skipWaiting();
 });
@@ -26,23 +28,31 @@ self.addEventListener('activate', event => {
       })
     ))
   );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request).then(fetchResponse => {
-        return caches.open(CACHE_NAME).then(cache => {
-          if (event.request.url.includes('tile.openstreetmap.org')) {
-            cache.put(event.request, fetchResponse.clone());
-          }
-          return fetchResponse;
-        });
-      });
-    }).catch(() => {
-      if (event.request.mode === 'navigate') {
-        return caches.match('./index.html');
+    caches.match(event.request).then(cachedResponse => {
+      if (cachedResponse) {
+        return cachedResponse;
       }
+      return fetch(event.request).then(networkResponse => {
+        if (!networkResponse || networkResponse.status !== 200) {
+          return networkResponse;
+        }
+        const responseToCache = networkResponse.clone();
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, responseToCache);
+        });
+        return networkResponse;
+      }).catch(() => {
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+      });
     })
   );
 });
