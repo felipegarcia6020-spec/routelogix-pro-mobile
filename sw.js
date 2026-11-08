@@ -1,11 +1,10 @@
-const CACHE_NAME = 'routelogix-cache-v2';
+const CACHE_NAME = 'routelogix-offline-v3';
 const assetsToCache = [
   './',
   './index.html',
   './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://unpkg.com/lucide@latest'
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
 self.addEventListener('install', event => {
@@ -36,6 +35,7 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(response => {
       return response || fetch(event.request).then(fetchResponse => {
         return caches.open(CACHE_NAME).then(cache => {
+          // Guarda automáticamente las teselas del mapa visitadas para uso offline (Punto 9)
           if (event.request.url.includes('tile.openstreetmap.org')) {
             cache.put(event.request, fetchResponse.clone());
           }
@@ -49,6 +49,3 @@ self.addEventListener('fetch', event => {
     })
   );
 });
-```[cite: 3]
-
-Guarda este código con el nombre exacto de **`sw.js`** en la carpeta raíz de tu proyecto junto al `index.html` y el `manifest.json`.
