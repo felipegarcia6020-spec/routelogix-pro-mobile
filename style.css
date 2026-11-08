@@ -1,4 +1,4 @@
-/* RouteLogix Pro & Routin Mobile Optimization Styles */
+/* RouteLogix Pro Modern & Minimalist TaT Styles */
 * {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
@@ -28,7 +28,6 @@ html, body {
     background: #0d0d0d !important;
 }
 
-/* Custom numbered map markers */
 .custom-map-badge {
     background-color: #2563eb;
     color: white;
@@ -37,8 +36,13 @@ html, body {
     text-align: center;
     line-height: 28px;
     border: 2px solid white;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
     font-size: 12px;
 }
 .custom-map-badge.start { background-color: #10b981; }
 .custom-map-badge.end { background-color: #f43f5e; }
+
+/* Custom smooth scrollbars */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #09090b; }
+::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
