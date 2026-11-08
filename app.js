@@ -1,9 +1,8 @@
-/* RouteLogix Pro & Routin Unified App Logic */
+/* RouteLogix Pro & Routin Mobile App Logic */
 let map, gpsMarker;
 let watchId = null;
-let currentTab = 'home';
+let currentTab = 'map';
 let selectedRouteId = 1;
-let selectedStopId = null;
 
 let appData = {
     routes: [
@@ -12,7 +11,6 @@ let appData = {
             title: "Ruta Centro - Bogotá",
             date: "04.11.2026",
             badge: "HOY",
-            badgeColor: "bg-blue-500",
             stops: [
                 { id: 101, title: "Plaza de Bolívar", lat: 4.5981, lng: -74.0760, notes: "Punto de Inicio", status: "completed", pendingBalance: 150000, collectedAmount: 150000, address: "Carrera 7" },
                 { id: 102, title: "Torre Colpatria", lat: 4.6105, lng: -74.0705, notes: "Cobrar factura #889", status: "waiting", pendingBalance: 280000, collectedAmount: 0, address: "Calle 26" },
@@ -48,12 +46,12 @@ window.onload = function() {
     loadLocalStorage();
     initMap();
     initGPSRealTime();
-    renderRoutes();
+    renderStopsList();
     renderAgenda();
     renderDenominations();
     renderExpenses();
     updateFinancialCalculations();
-    registrarLog("Aplicación iniciada en modo operativo unificado.");
+    registrarLog("Aplicación móvil iniciada correctamente.");
     
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js')
@@ -71,11 +69,11 @@ function registrarLog(texto) {
 }
 
 function saveLocalStorage() {
-    localStorage.setItem('routelogix_pro_v3', JSON.stringify(appData));
+    localStorage.setItem('routelogix_mobile_v3', JSON.stringify(appData));
 }
 
 function loadLocalStorage() {
-    const saved = localStorage.getItem('routelogix_pro_v3');
+    const saved = localStorage.getItem('routelogix_mobile_v3');
     if(saved) {
         try {
             const parsed = JSON.parse(saved);
@@ -84,9 +82,7 @@ function loadLocalStorage() {
             if(parsed.expenses) appData.expenses = parsed.expenses;
             if(parsed.cashCounts) appData.cashCounts = parsed.cashCounts;
             if(parsed.logs) appData.logs = parsed.logs;
-        } catch(e) {
-            console.error("Error al cargar localStorage", e);
-        }
+        } catch(e) { console.error("Error al cargar localStorage", e); }
     }
 }
 
@@ -97,7 +93,7 @@ function initMap() {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap'
     }).addTo(map);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    L.control.zoom({ position: 'topright' }).addTo(map);
 
     renderMapStops();
 }
@@ -112,8 +108,8 @@ function initGPSRealTime() {
                 if(!gpsMarker) {
                     const gpsIcon = L.divIcon({
                         className: 'gps-dot',
-                        html: '<div style="width:18px;height:18px;background:#3b82f6;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 12px #38bdf8;"></div>',
-                        iconSize: [18, 18]
+                        html: '<div style="width:20px;height:20px;background:#3b82f6;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 14px #38bdf8;"></div>',
+                        iconSize: [20, 20]
                     });
                     gpsMarker = L.marker([lat, lng], {icon: gpsIcon}).addTo(map).bindPopup("Tu ubicación GPS actual");
                 } else {
@@ -135,8 +131,9 @@ function centrarGPS() {
     }
 }
 
-/* Renderizar paradas en el mapa actual con numeración */
+/* Renderizar paradas en el mapa */
 function renderMapStops() {
+    if(!map) return;
     const route = appData.routes.find(r => r.id === selectedRouteId) || appData.routes[0];
     if(!route) return;
 
@@ -174,13 +171,13 @@ function renderAgenda() {
     
     appData.agenda.forEach(cli => {
         const card = document.createElement('div');
-        card.className = "bg-neutral-900 border border-neutral-800 p-3 rounded-xl mb-2 text-xs flex justify-between items-center";
+        card.className = "bg-neutral-900 border border-neutral-800 p-3.5 rounded-xl mb-2.5 text-xs flex justify-between items-center shadow-sm";
         card.innerHTML = `
             <div>
-                <h4 class="font-bold text-white">${cli.nombre}</h4>
-                <p class="text-neutral-400">${cli.direccion || 'Sin dirección'} | Tel: ${cli.telefono || 'N/A'}</p>
+                <h4 class="font-bold text-white text-sm">${cli.nombre}</h4>
+                <p class="text-neutral-400 mt-0.5">${cli.direccion || 'Sin dirección'} | Tel: ${cli.telefono || 'N/A'}</p>
             </div>
-            <button onclick="agregarClienteARuta('${cli.nombre}', '${cli.direccion}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded font-semibold">+ Ruta</button>
+            <button onclick="agregarClienteARuta('${cli.nombre}', '${cli.direccion}')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg font-semibold shadow">+ Ruta</button>
         `;
         container.appendChild(card);
     });
@@ -202,8 +199,39 @@ function agregarClienteARuta(nombre, direccion) {
     });
     saveLocalStorage();
     renderMapStops();
+    renderStopsList();
     registrarLog(`Cliente ${nombre} añadido a la ruta.`);
     alert(`¡${nombre} agregado a la ruta actual!`);
+}
+
+function renderStopsList() {
+    const container = document.getElementById('lista-paradas');
+    if(!container) return;
+    container.innerHTML = '';
+
+    const route = appData.routes.find(r => r.id === selectedRouteId) || appData.routes[0];
+    if(!route || route.stops.length === 0) {
+        container.innerHTML = `<div class="text-center py-12 text-neutral-500 text-xs">No hay paradas en la ruta. Ve al mapa y usa "+ Añadir Parada aquí".</div>`;
+        return;
+    }
+
+    route.stops.forEach((stop, index) => {
+        const card = document.createElement('div');
+        card.className = "bg-neutral-900 border border-neutral-800 p-3.5 rounded-xl space-y-2 shadow-sm";
+        card.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-600/20 text-blue-400">Parada #${index+1}</span>
+                    <h4 class="font-bold text-white text-sm mt-1">${stop.title}</h4>
+                    <p class="text-xs text-neutral-400">${stop.address || 'Sin dirección'} | Cobro: <strong class="text-emerald-400">$${(stop.pendingBalance||0).toLocaleString()}</strong></p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2 border-t border-neutral-800">
+                <button onclick="borrarParada(${stop.id})" class="bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg text-xs font-semibold">Eliminar</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
 }
 
 /* 4. Borrar Paradas y Rutas */
@@ -213,6 +241,7 @@ function borrarParada(stopId) {
         route.stops = route.stops.filter(s => s.id !== stopId);
         saveLocalStorage();
         renderMapStops();
+        renderStopsList();
         registrarLog(`Parada ID ${stopId} eliminada.`);
     }
 }
@@ -224,6 +253,7 @@ function borrarRutaActiva() {
             route.stops = [];
             saveLocalStorage();
             renderMapStops();
+            renderStopsList();
             registrarLog("Ruta activa vaciada.");
         }
     }
@@ -258,11 +288,12 @@ function optimizarRuta() {
     route.stops = optimized;
     saveLocalStorage();
     renderMapStops();
+    renderStopsList();
     registrarLog("Ruta optimizada por proximidad.");
     alert("¡Ruta optimizada con éxito!");
 }
 
-/* 7. Registro de Actividad Activo */
+/* 7. Registro de Actividad y Añadir Parada desde la mira */
 function abrirModalParadaCentro() {
     const centro = map.getCenter();
     window.tempLat = centro.lat;
@@ -270,11 +301,11 @@ function abrirModalParadaCentro() {
     document.getElementById('parada-nombre').value = '';
     document.getElementById('parada-direccion').value = '';
     document.getElementById('parada-valor').value = '';
-    document.getElementById('modal-parada').style.display = 'flex';
+    document.getElementById('modal-parada').classList.remove('hidden');
 }
 
 function cerrarModal() {
-    document.getElementById('modal-parada').style.display = 'none';
+    document.getElementById('modal-parada').classList.add('hidden');
 }
 
 function guardarNuevaParada() {
@@ -282,7 +313,7 @@ function guardarNuevaParada() {
     const direccion = document.getElementById('parada-direccion').value.trim();
     const valor = parseFloat(document.getElementById('parada-valor').value) || 0;
 
-    if(!nombre) { alert("Ingresa un nombre"); return; }
+    if(!nombre) { alert("Ingresa un nombre para el cliente"); return; }
 
     const route = appData.routes.find(r => r.id === selectedRouteId) || appData.routes[0];
     route.stops.push({
@@ -297,13 +328,13 @@ function guardarNuevaParada() {
         notes: 'Añadido desde mira central'
     });
 
-    // Añadir también a la agenda general si no existe
     if(!appData.agenda.some(a => a.nombre === nombre)) {
         appData.agenda.push({ id: Date.now(), nombre, direccion, telefono: 'N/A' });
     }
 
     saveLocalStorage();
     renderMapStops();
+    renderStopsList();
     renderAgenda();
     cerrarModal();
     registrarLog(`Nueva parada guardada: ${nombre}`);
@@ -325,6 +356,7 @@ function importarArchivoRoutin(event) {
 
                 saveLocalStorage();
                 renderMapStops();
+                renderStopsList();
                 registrarLog("Archivo Routin (.bin / JSON) importado con éxito.");
                 alert("¡Ruta y paradas importadas correctamente!");
             } else {
@@ -378,6 +410,14 @@ function setDenomDirect(val, count) {
     updateFinancialCalculations();
 }
 
+function resetCashCounter() {
+    denominations.forEach(d => appData.cashCounts[d.value] = 0);
+    saveLocalStorage();
+    renderDenominations();
+    updateFinancialCalculations();
+    registrarLog("Contador de dinero restablecido.");
+}
+
 function addExpense() {
     const concept = document.getElementById('expense-concept').value.trim();
     const amount = parseFloat(document.getElementById('expense-amount').value) || 0;
@@ -398,7 +438,7 @@ function renderExpenses() {
     container.innerHTML = '';
     appData.expenses.forEach(exp => {
         const item = document.createElement('div');
-        item.className = "bg-neutral-900 border border-neutral-800 p-2.5 rounded-xl mb-2 text-xs flex justify-between items-center";
+        item.className = "bg-neutral-950 border border-neutral-800 p-2.5 rounded-lg mb-2 text-xs flex justify-between items-center";
         item.innerHTML = `
             <div>
                 <div class="font-bold text-white">${exp.concept}</div>
@@ -430,13 +470,25 @@ function updateFinancialCalculations() {
 
     const netBadge = document.getElementById('header-net-badge');
     if(netBadge) netBadge.innerText = `$${netExpected.toLocaleString()}`;
+    
+    const counterDisplay = document.getElementById('counter-total-display');
+    if(counterDisplay) counterDisplay.innerText = `$${physicalCash.toLocaleString()}`;
 }
 
-function cambiarPestana(pestana) {
-    ['rutas', 'agenda', 'registro', 'finanzas'].forEach(p => {
-        const el = document.getElementById(`sidebar-pane-${p}`);
-        if(el) el.style.display = p === pestana ? 'block' : 'none';
-        const btn = document.getElementById(`tab-btn-${p}`);
-        if(btn) btn.classList.toggle('active', p === pestana);
+function switchTab(tabId) {
+    currentTab = tabId;
+    ['map', 'routes', 'agenda', 'finances', 'registro'].forEach(t => {
+        const view = document.getElementById(`view-${t}`);
+        if(view) view.classList.toggle('hidden', t !== tabId);
+        
+        const navBtn = document.getElementById(`nav-btn-${t}`);
+        if(navBtn) {
+            navBtn.classList.toggle('text-blue-500', t === tabId);
+            navBtn.classList.toggle('text-neutral-400', t !== tabId);
+        }
     });
+
+    if(tabId === 'map' && map) {
+        setTimeout(() => map.invalidateSize(), 200);
+    }
 }

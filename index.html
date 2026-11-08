@@ -1,109 +1,162 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full bg-neutral-950">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RouteLogix Pro & Routin - Sistema TaT Unificado</title>
-
-    <meta name="theme-color" content="#020617">
+    <title>RouteLogix Pro & Routin - Mobile TaT</title>
+    
+    <meta name="theme-color" content="#09090b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <link rel="icon" type="image/png" href="./icon.png">
 
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Leaflet CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- FontAwesome & Custom CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="stylesheet" href="./style.css">
 </head>
-<body>
+<body class="h-full text-gray-200 bg-neutral-950 flex flex-col justify-between selection:bg-blue-600 selection:text-white overflow-hidden">
 
-    <div class="app-container">
-        <!-- MAPA Y CONTROLES GPS (Requisito 1, 2, 5, 9) -->
-        <div id="map-wrapper">
-            <div id="map"></div>
-            <!-- Cursor / Mira central de precisión (Requisito 1) -->
-            <div class="map-crosshair" title="Punto exacto de puntería"></div>
-            <!-- Botón flotante GPS y indicador (Requisito 2 y 5) -->
-            <button class="gps-fab" onclick="centrarGPS()" title="Mi ubicación GPS">📍</button>
+    <!-- TOP APP BAR -->
+    <header class="bg-neutral-900 border-b border-neutral-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-md">
+        <div class="flex items-center space-x-3">
+            <h1 id="header-title" class="font-bold text-base text-white tracking-wide">RouteLogix Pro</h1>
         </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="switchTab('finances')" class="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 rounded-lg flex items-center space-x-1 text-xs font-semibold border border-neutral-700">
+                <i data-lucide="wallet" class="w-4 h-4"></i>
+                <span id="header-net-badge">$0</span>
+            </button>
+            <button onclick="document.getElementById('import-file-input').click()" class="text-neutral-400 hover:text-white p-1.5 rounded-lg active:bg-neutral-800" title="Importar .bin / JSON de Routin">
+                <i data-lucide="folder-open" class="w-4 h-4"></i>
+            </button>
+            <input type="file" id="import-file-input" class="hidden" accept=".bin,.json" onchange="importarArchivoRoutin(event)">
+        </div>
+    </header>
 
-        <!-- PANEL LATERAL DE CONTROL OPERATIVO -->
-        <div class="sidebar" style="width: 440px; min-width: 320px; background-color: #0f172a; border-left: 1px solid #1e293b; display: flex; flex-direction: column; z-index: 1001;">
-            <div class="sidebar-header" style="padding: 16px; background-color: #020617; border-bottom: 1px solid #1e293b;">
-                <h2 style="margin: 0 0 10px 0; font-size: 1.15rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
-                    <span>RouteLogix Pro & Routin</span>
-                    <span id="header-net-badge" style="font-size:0.8rem; color:#10b981; font-weight:bold;">$0</span>
-                </h2>
-                <div class="header-actions" style="display: flex; gap: 6px; flex-wrap: wrap;">
-                    <button onclick="document.getElementById('file-bin-input').click()" style="flex:1; padding:8px; background:#2563eb; color:white; border:none; border-radius:6px; font-weight:600; font-size:0.75rem; cursor:pointer;">📁 Importar .bin</button>
-                    <button onclick="abrirModalParadaCentro()" style="flex:1; padding:8px; background:#059669; color:white; border:none; border-radius:6px; font-weight:600; font-size:0.75rem; cursor:pointer;">+ Añadir Parada</button>
-                    <button onclick="optimizarRuta()" style="padding:8px 10px; background:#475569; color:white; border:none; border-radius:6px; font-weight:600; font-size:0.75rem; cursor:pointer;" title="Optimizar ruta">⚡ Optimizar</button>
-                    <button onclick="borrarRutaActiva()" style="padding:8px 10px; background:#7f1d1d; color:#fca5a5; border:none; border-radius:6px; font-weight:600; font-size:0.75rem; cursor:pointer;" title="Borrar ruta">🗑️</button>
+    <!-- MAIN MOBILE VIEW CONTAINER -->
+    <main class="flex-1 overflow-y-auto w-full mx-auto pb-20 relative flex flex-col">
+
+        <!-- VIEW 1: MAP & ROUTE WORKSPACE (Mobile Optimized) -->
+        <section id="view-map" class="flex-1 flex flex-col relative h-full">
+            <div id="map" class="w-full flex-1 absolute inset-0 z-0"></div>
+            
+            <!-- MIRA / CROSSHAIR CENTRAL DE PRECISIÓN (Requisito 1) -->
+            <div class="map-crosshair absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 flex items-center justify-center">
+                <div class="w-8 h-8 border-2 border-dashed border-blue-500 rounded-full animate-spin" style="animation-duration: 12s;"></div>
+                <div class="absolute w-2 h-2 bg-rose-500 rounded-full shadow-[0_0_8px_#f43f5e]"></div>
+            </div>
+
+            <!-- BOTÓN FLOTANTE GPS (Requisito 2 y 5) -->
+            <button onclick="centrarGPS()" class="absolute bottom-20 left-4 z-20 w-12 h-12 bg-neutral-900/90 backdrop-blur border border-neutral-700 rounded-full flex items-center justify-center text-blue-400 shadow-xl active:scale-95 transition">
+                <i data-lucide="navigation" class="w-5 h-5"></i>
+            </button>
+
+            <!-- BOTÓN FLOTANTE INFERIOR PARA AÑADIR PARADA EN EL CENTRO DE LA MIRA -->
+            <div class="absolute bottom-4 left-0 right-0 z-20 px-4 flex gap-2">
+                <button onclick="abrirModalParadaCentro()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-2xl flex items-center justify-center gap-2 border border-blue-500/50 text-xs active:scale-95 transition">
+                    <i data-lucide="map-pin-plus" class="w-4 h-4"></i> Añadir Parada aquí
+                </button>
+                <button onclick="optimizarRuta()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-4 rounded-xl shadow-2xl flex items-center justify-center gap-1 text-xs active:scale-95 transition" title="Optimizar Ruta">
+                    <i data-lucide="zap" class="w-4 h-4"></i> Optimizar
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEW 2: STOPS & ROUTE LIST -->
+        <section id="view-routes" class="p-4 space-y-3 hidden flex-1 bg-neutral-950">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Paradas de la Ruta Activa</h2>
+                <button onclick="borrarRutaActiva()" class="text-xs text-rose-400 hover:underline">Borrar Ruta</button>
+            </div>
+            <div id="lista-paradas" class="space-y-2.5"></div>
+        </section>
+
+        <!-- VIEW 3: AGENDA DE CLIENTES (Requisito 3) -->
+        <section id="view-agenda" class="p-4 space-y-3 hidden flex-1 bg-neutral-950">
+            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Agenda General de Clientes</h2>
+            <div id="lista-agenda" class="space-y-2.5"></div>
+        </section>
+
+        <!-- VIEW 4: FINANZAS Y CAJA -->
+        <section id="view-finances" class="p-4 space-y-4 hidden flex-1 bg-neutral-950">
+            <div class="bg-neutral-900 p-4 rounded-xl border border-neutral-800 flex justify-between items-center">
+                <div>
+                    <div class="text-xs text-neutral-400 uppercase font-semibold">Total en Dinero Físico</div>
+                    <div id="counter-total-display" class="text-2xl font-extrabold text-emerald-400">$0</div>
                 </div>
-                <input type="file" id="file-bin-input" style="display:none" accept=".bin,.json" onchange="importarArchivoRoutin(event)">
+                <button onclick="resetCashCounter()" class="bg-neutral-800 text-neutral-300 text-xs px-3 py-2 rounded-lg border border-neutral-700">Limpiar</button>
             </div>
-
-            <!-- Pestañas de Navegación del Panel (Requisito 3 - Agenda, Rutas, Finanzas, Registro) -->
-            <div class="panel-tabs" style="display: flex; background: #020617; border-bottom: 1px solid #1e293b;">
-                <div class="panel-tab active" id="tab-btn-rutas" onclick="cambiarPestana('rutas')" style="flex:1; padding:10px; text-align:center; font-size:0.75rem; color:#94a3b8; cursor:pointer;">Ruta</div>
-                <div class="panel-tab" id="tab-btn-agenda" onclick="cambiarPestana('agenda')" style="flex:1; padding:10px; text-align:center; font-size:0.75rem; color:#94a3b8; cursor:pointer;">Agenda</div>
-                <div class="panel-tab" id="tab-btn-finanzas" onclick="cambiarPestana('finanzas')" style="flex:1; padding:10px; text-align:center; font-size:0.75rem; color:#94a3b8; cursor:pointer;">Finanzas</div>
-                <div class="panel-tab" id="tab-btn-registro" onclick="cambiarPestana('registro')" style="flex:1; padding:10px; text-align:center; font-size:0.75rem; color:#94a3b8; cursor:pointer;">Registro</div>
-            </div>
-
-            <div class="sidebar-content" id="sidebar-pane-rutas" style="padding: 16px; overflow-y: auto; flex: 1;">
-                <h3 style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase;">Paradas de la Ruta Activa</h3>
-                <div id="lista-paradas">
-                    <!-- Dinámico por app.js -->
-                </div>
-            </div>
-
-            <div class="sidebar-content" id="sidebar-pane-agenda" style="padding: 16px; overflow-y: auto; flex: 1; display:none;">
-                <h3 style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase;">Agenda de Clientes (Requisito 3)</h3>
-                <div id="lista-agenda"></div>
-            </div>
-
-            <div class="sidebar-content" id="sidebar-pane-finanzas" style="padding: 16px; overflow-y: auto; flex: 1; display:none;">
-                <h3 style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase;">Control de Dinero & Caja</h3>
-                <div id="denominations-container"></div>
-                <h3 style="font-size: 0.8rem; color: #94a3b8; margin: 15px 0 10px 0; text-transform: uppercase;">Gastos de Ruta</h3>
-                <div class="flex gap-2 mb-2">
-                    <input type="text" id="expense-concept" placeholder="Concepto" class="flex-1 bg-neutral-950 border border-neutral-800 text-xs p-2 rounded text-white">
-                    <input type="number" id="expense-amount" placeholder="Monto" class="w-24 bg-neutral-950 border border-neutral-800 text-xs p-2 rounded text-white">
+            <div class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Desglose de Denominaciones</div>
+            <div id="denominations-container" class="space-y-2"></div>
+            
+            <div class="bg-neutral-900 p-4 rounded-xl border border-neutral-800 space-y-2 mt-4">
+                <div class="text-xs font-bold text-white">Gastos de Ruta</div>
+                <div class="flex gap-2">
+                    <input type="text" id="expense-concept" placeholder="Concepto (Gasolina, Peaje)" class="flex-1 bg-neutral-950 border border-neutral-800 text-xs p-2 rounded text-white">
+                    <input type="number" id="expense-amount" placeholder="Monto ($)" class="w-24 bg-neutral-950 border border-neutral-800 text-xs p-2 rounded text-white">
                     <button onclick="addExpense()" class="bg-rose-600 text-white px-3 py-2 rounded text-xs font-bold">+</button>
                 </div>
-                <div id="expenses-list"></div>
+                <div id="expenses-list" class="space-y-1 pt-2"></div>
             </div>
+        </section>
 
-            <div class="sidebar-content" id="sidebar-pane-registro" style="padding: 16px; overflow-y: auto; flex: 1; display:none;">
-                <h3 style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase;">Registro de Actividad (Requisito 7)</h3>
-                <div id="lista-registro" style="font-size: 0.75rem; font-family: monospace; color: #38bdf8; line-height: 1.4;"></div>
-            </div>
+        <!-- VIEW 5: REGISTRO DE ACTIVIDAD (Requisito 7) -->
+        <section id="view-registro" class="p-4 space-y-2 hidden flex-1 bg-neutral-950">
+            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Registro de Operación & Sistema</h2>
+            <div id="lista-registro" class="p-3 bg-neutral-900 rounded-xl border border-neutral-800 font-mono text-[11px] text-blue-400 leading-relaxed overflow-y-auto"></div>
+        </section>
+    </main>
+
+    <!-- MOBILE BOTTOM NAVIGATION BAR (Routin Style) -->
+    <nav class="bg-neutral-900 border-t border-neutral-800 fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto shadow-2xl">
+        <div class="grid grid-cols-5 py-2">
+            <button onclick="switchTab('map')" id="nav-btn-map" class="flex flex-col items-center justify-center text-blue-500 transition">
+                <i data-lucide="map" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-1 font-medium">Mapa</span>
+            </button>
+            <button onclick="switchTab('routes')" id="nav-btn-routes" class="flex flex-col items-center justify-center text-neutral-400 hover:text-white transition">
+                <i data-lucide="route" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-1 font-medium">Ruta</span>
+            </button>
+            <button onclick="switchTab('agenda')" id="nav-btn-agenda" class="flex flex-col items-center justify-center text-neutral-400 hover:text-white transition">
+                <i data-lucide="book-user" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-1 font-medium">Agenda</span>
+            </button>
+            <button onclick="switchTab('finances')" id="nav-btn-finances" class="flex flex-col items-center justify-center text-neutral-400 hover:text-white transition">
+                <i data-lucide="wallet" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-1 font-medium">Caja</span>
+            </button>
+            <button onclick="switchTab('registro')" id="nav-btn-registro" class="flex flex-col items-center justify-center text-neutral-400 hover:text-white transition">
+                <i data-lucide="scroll-text" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-1 font-medium">Logs</span>
+            </button>
         </div>
-    </div>
+    </nav>
 
     <!-- MODAL NUEVA PARADA -->
-    <div class="modal" id="modal-parada" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000; align-items:center; justify-content:center; padding:20px;">
-        <div class="modal-content" style="background:#0f172a; border:1px solid #334155; padding:20px; border-radius:12px; width:100%; max-width:380px;">
-            <h3 style="margin-bottom:12px; font-size:1.1rem; color:#38bdf8;">Nueva Parada en el Mapa</h3>
-            <input type="text" id="parada-nombre" placeholder="Nombre del cliente o negocio" style="width:100%; padding:10px; margin-bottom:10px; background:#020617; border:1px solid #1e293b; color:white; border-radius:6px; font-size:0.9rem;">
-            <input type="text" id="parada-direccion" placeholder="Dirección o referencia" style="width:100%; padding:10px; margin-bottom:10px; background:#020617; border:1px solid #1e293b; color:white; border-radius:6px; font-size:0.9rem;">
-            <input type="number" id="parada-valor" placeholder="Monto a cobrar ($)" style="width:100%; padding:10px; margin-bottom:15px; background:#020617; border:1px solid #1e293b; color:white; border-radius:6px; font-size:0.9rem;">
-            <div style="display:flex; gap:8px;">
-                <button onclick="guardarNuevaParada()" style="flex:1; padding:10px; background:#2563eb; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">Guardar</button>
-                <button onclick="cerrarModal()" style="flex:1; padding:10px; background:#334155; color:white; border:none; border-radius:6px; cursor:pointer;">Cancelar</button>
+    <div id="modal-parada" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl">
+            <h3 class="font-bold text-sm text-blue-400"><i data-lucide="map-pin-plus" class="w-4 h-4 inline mr-1"></i> Añadir Parada en el Punto</h3>
+            <div class="space-y-2 text-xs">
+                <input type="text" id="parada-nombre" placeholder="Nombre del Negocio / Cliente" class="w-full bg-neutral-950 border border-neutral-800 rounded p-2.5 text-white">
+                <input type="text" id="parada-direccion" placeholder="Dirección o referencia" class="w-full bg-neutral-950 border border-neutral-800 rounded p-2.5 text-white">
+                <input type="number" id="parada-valor" placeholder="Monto a cobrar ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded p-2.5 text-white">
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="guardarNuevaParada()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl font-bold text-xs shadow">Guardar</button>
+                <button onclick="cerrarModal()" class="flex-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 py-2.5 rounded-xl font-bold text-xs">Cancelar</button>
             </div>
         </div>
     </div>
 
-    <!-- Script principal unificado -->
+    <!-- Script principal de lógica -->
     <script src="./app.js"></script>
 </body>
 </html>
