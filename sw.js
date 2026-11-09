@@ -11,9 +11,9 @@ const coreAssets = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      // Precarga segura de archivos locales para evitar fallos de instalación
+      // Usar addAll para los recursos locales principales asegurando robustez
       return cache.addAll(coreAssets).catch(err => {
-        console.warn('Advertencia en caché de archivos:', err);
+        console.warn('Algunos recursos estáticos no pudieron precargarse:', err);
       });
     })
   );
@@ -32,15 +32,18 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Evitar interceptar solicitudes de extensiones o métodos no GET
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       if (cachedResponse) {
+        // Devolver caché y actualizar en segundo plano opcionalmente
         return cachedResponse;
       }
       return fetch(event.request).then(networkResponse => {
-        if (!networkResponse || networkResponse.status !== 200) {
+        // Almacenar en caché las teselas del mapa o recursos de red dinámicos
+        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && !event.request.url.includes('openstreetmap.org')) {
           return networkResponse;
         }
         const responseToCache = networkResponse.clone();

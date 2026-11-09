@@ -23,22 +23,20 @@
 </head>
 <body class="h-full text-gray-200 bg-neutral-950 flex flex-col justify-between selection:bg-blue-600 selection:text-white overflow-hidden">
 
-    <!-- 7. VENTANA DE LOGIN Y REGISTRO (INICIO) -->
+    <!-- VENTANA DE LOGIN Y REGISTRO -->
     <div id="auth-screen" class="fixed inset-0 z-50 bg-neutral-950 flex flex-col items-center justify-center p-5">
         <div class="w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-2xl space-y-5">
             <div class="text-center space-y-1">
                 <div class="w-12 h-12 bg-blue-600/20 text-blue-400 rounded-xl flex items-center justify-center mx-auto mb-2 font-extrabold text-lg">RL</div>
                 <h1 class="text-xl font-bold text-white tracking-wide">RouteLogix Pro</h1>
-                <p class="text-xs text-neutral-400">Sistema de Rutas y Caja TaT</p>
+                <p class="text-xs text-neutral-400">Sistema TaT Profesional</p>
             </div>
 
-            <!-- Tab Selector Login / Registro -->
             <div class="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 text-xs font-semibold">
                 <button onclick="switchAuthTab('login')" id="auth-tab-login" class="flex-1 py-2 rounded-lg bg-blue-600 text-white transition">Iniciar Sesión</button>
                 <button onclick="switchAuthTab('register')" id="auth-tab-register" class="flex-1 py-2 rounded-lg text-neutral-400 transition">Registrarse</button>
             </div>
 
-            <!-- Formulario Login -->
             <form id="form-login" onsubmit="handleLogin(event)" class="space-y-3 text-xs">
                 <div>
                     <label class="block text-neutral-400 mb-1">Correo Electrónico</label>
@@ -51,42 +49,45 @@
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg transition active:scale-95">Ingresar al Sistema</button>
             </form>
 
-            <!-- Formulario Registro -->
             <form id="form-register" onsubmit="handleRegister(event)" class="space-y-3 text-xs hidden">
                 <div>
                     <label class="block text-neutral-400 mb-1">Nombre Completo del Conductor</label>
-                    <input type="text" id="reg-name" required placeholder="Carlos Pérez" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+                    <input type="text" id="reg-name" required placeholder="Carlos Pérez" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                 </div>
                 <div>
-                    <label class="block text-neutral-400 mb-1">Correo Electrónico (Para sincronizar)</label>
-                    <input type="email" id="reg-email" required placeholder="carlos@routelogix.com" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+                    <label class="block text-neutral-400 mb-1">Correo Electrónico</label>
+                    <input type="email" id="reg-email" required placeholder="carlos@routelogix.com" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                 </div>
                 <div>
                     <label class="block text-neutral-400 mb-1">Contraseña</label>
-                    <input type="password" id="reg-pass" required placeholder="••••••••" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+                    <input type="password" id="reg-pass" required placeholder="••••••••" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
+                </div>
+                <div>
+                    <label class="block text-neutral-400 mb-1">URL de Foto / Imagen del Conductor</label>
+                    <input type="text" id="reg-photo" placeholder="https://ejemplo.com/foto.jpg" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                 </div>
                 <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg transition active:scale-95">Crear Cuenta</button>
             </form>
         </div>
     </div>
 
-    <!-- 10. TARJETA SUPERIOR DE CONDUCTOR -->
+    <!-- TARJETA SUPERIOR DE CONDUCTOR (Con soporte de foto personalizable) -->
     <header class="bg-neutral-900 border-b border-neutral-800 px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-        <div class="flex items-center space-x-2.5">
-            <div id="driver-avatar" class="w-9 h-9 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow">CP</div>
+        <div class="flex items-center space-x-2.5 cursor-pointer" onclick="openDriverEditModal()">
+            <div id="driver-avatar-container" class="w-9 h-9 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm shadow overflow-hidden border border-neutral-700">
+                <span id="driver-initials">CP</span>
+            </div>
             <div>
                 <h1 id="driver-name-display" class="font-bold text-xs text-white">Conductor Asignado</h1>
-                <p class="text-[10px] text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> En servicio activo</p>
+                <p class="text-[10px] text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> En servicio activo (Editar)</p>
             </div>
         </div>
         <div class="flex items-center space-x-2">
-            <!-- Botón Importar .bin / JSON -->
             <button onclick="document.getElementById('import-file-input').click()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs flex items-center space-x-1 border border-neutral-700" title="Importar rutas .bin o JSON">
                 <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
                 <span class="text-[10px]">Importar</span>
             </button>
             <input type="file" id="import-file-input" class="hidden" accept=".bin,.json" onchange="importarArchivoRoutin(event)">
-            <!-- Logout -->
             <button onclick="logoutSession()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-rose-400 rounded-xl text-xs border border-neutral-700" title="Cerrar sesión">
                 <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
             </button>
@@ -96,18 +97,18 @@
     <!-- MAIN APP CONTAINER -->
     <main class="flex-1 overflow-y-auto w-full mx-auto pb-20 relative flex flex-col">
 
-        <!-- 2. PESTAÑA MAPA -->
+        <!-- PESTAÑA MAPA (Búsqueda corregida para no tapar los botones de zoom) -->
         <section id="view-map" class="flex-1 flex flex-col relative h-full">
-            <!-- Barra de búsqueda superior en el mapa -->
-            <div class="absolute top-3 left-3 right-3 z-30 flex gap-2">
+            <!-- Barra de búsqueda superior en el mapa (ajustada para dejar espacio a los controles de zoom a la derecha) -->
+            <div class="absolute top-3 left-3 right-16 z-30 flex gap-2">
                 <div class="flex-1 bg-neutral-900/95 backdrop-blur border border-neutral-700 rounded-xl flex items-center px-3 py-2 shadow-lg">
-                    <i data-lucide="search" class="w-4 h-4 text-neutral-400 mr-2"></i>
+                    <i data-lucide="search" class="w-4 h-4 text-neutral-400 mr-2 shrink-0"></i>
                     <input type="text" id="map-search-input" placeholder="Buscar dirección o lugar..." onkeydown="if(event.key==='Enter') searchMapAddress()" class="w-full bg-transparent text-xs text-white focus:outline-none placeholder-neutral-500">
                 </div>
                 <button onclick="searchMapAddress()" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 rounded-xl shadow-lg flex items-center justify-center text-xs">Ir</button>
             </div>
 
-            <!-- 9. Selector de vistas de mapa -->
+            <!-- Selector de vistas de mapa -->
             <div class="absolute top-16 left-3 z-30 flex gap-1 bg-neutral-900/90 backdrop-blur p-1 rounded-xl border border-neutral-700 text-[10px] shadow-lg">
                 <button onclick="setMapTileStyle('standard')" id="style-standard" class="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium">Clásico</button>
                 <button onclick="setMapTileStyle('dark')" id="style-dark" class="px-2.5 py-1 rounded-lg text-neutral-300 font-medium">Oscuro</button>
@@ -127,15 +128,14 @@
                 <i data-lucide="navigation" class="w-5 h-5"></i>
             </button>
 
-            <!-- 5. Menú flotante integrado de Paradas -->
+            <!-- Menú flotante integrado de Paradas -->
             <div class="absolute bottom-4 left-0 right-0 z-20 px-4 flex gap-2">
                 <div class="relative flex-1">
                     <button onclick="toggleStopMenu()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-2xl flex items-center justify-center gap-2 border border-blue-500/50 text-xs active:scale-95 transition">
                         <i data-lucide="plus-circle" class="w-4 h-4"></i> Añadir Parada <i data-lucide="chevron-up" class="w-3.5 h-3.5 ml-1"></i>
                     </button>
-                    <!-- Submenú desplegable paradas -->
                     <div id="stop-submenu" class="hidden absolute bottom-14 left-0 right-0 bg-neutral-900 border border-neutral-800 rounded-2xl p-2 shadow-2xl space-y-1 text-xs">
-                        <button onclick="abrirModalParadaCentro('nueva')" class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-neutral-800 flex items-center space-x-2 text-white">
+                        <button onclick="abrirModalParadaCentro()" class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-neutral-800 flex items-center space-x-2 text-white">
                             <i data-lucide="map-pin" class="w-4 h-4 text-blue-400"></i>
                             <span>Añadir dirección o ubicación exacta</span>
                         </button>
@@ -145,13 +145,13 @@
                         </button>
                     </div>
                 </div>
-                <button onclick="optimizarRutaActiva()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-4 rounded-xl shadow-2xl flex items-center justify-center gap-1 text-xs active:scale-95 transition" title="Optimizar Ruta">
-                    <i data-lucide="zap" class="w-4 h-4"></i> Optimizar
+                <button onclick="optimizarRutaInteligente()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-4 rounded-xl shadow-2xl flex items-center justify-center gap-1 text-xs active:scale-95 transition" title="Optimización IA (Tráfico / Semáforos / Distancia)">
+                    <i data-lucide="zap" class="w-4 h-4"></i> Optimizar IA
                 </button>
             </div>
         </section>
 
-        <!-- 3. PESTAÑA RUTA (Gestión de Rutas, Activación, Métricas) -->
+        <!-- PESTAÑA RUTA (Gestión, activación, métricas, reordenamiento manual y estados de entrega) -->
         <section id="view-routes" class="p-4 space-y-4 hidden flex-1 bg-neutral-950">
             <div class="flex justify-between items-center">
                 <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Gestión de Rutas TaT</h2>
@@ -165,10 +165,10 @@
             <div id="active-route-card" class="bg-gradient-to-br from-neutral-900 to-neutral-900/80 border border-neutral-800 rounded-2xl p-4 shadow-md space-y-3">
                 <div class="flex justify-between items-start">
                     <div>
-                        <span id="route-active-badge" class="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Activa</span>
+                        <span class="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Activa</span>
                         <h3 id="route-active-title" class="font-bold text-sm text-white mt-1">Ruta Principal</h3>
                     </div>
-                    <button onclick="activarRutaActual()" id="btn-activate-route" class="bg-neutral-800 hover:bg-neutral-700 text-blue-400 text-xs px-3 py-1.5 rounded-lg font-semibold border border-neutral-700">Activada</button>
+                    <button onclick="activarRutaActual()" class="bg-neutral-800 hover:bg-neutral-700 text-blue-400 text-xs px-3 py-1.5 rounded-lg font-semibold border border-neutral-700">En Curso</button>
                 </div>
                 <div class="grid grid-cols-3 gap-2 pt-2 border-t border-neutral-800/80 text-center text-xs">
                     <div class="bg-neutral-950/60 p-2 rounded-xl">
@@ -186,20 +186,36 @@
                 </div>
             </div>
 
+            <!-- Resumen de Estados de Pedidos (Pendientes, Entregados, Rechazados) -->
+            <div class="grid grid-cols-3 gap-2 text-xs">
+                <div class="bg-neutral-900 border border-neutral-800 p-2.5 rounded-xl text-center">
+                    <span class="text-[10px] text-amber-400 block font-semibold">Pendientes</span>
+                    <strong id="count-pending" class="text-white text-base">0</strong>
+                </div>
+                <div class="bg-neutral-900 border border-neutral-800 p-2.5 rounded-xl text-center">
+                    <span class="text-[10px] text-emerald-400 block font-semibold">Entregados</span>
+                    <strong id="count-delivered" class="text-white text-base">0</strong>
+                </div>
+                <div class="bg-neutral-900 border border-neutral-800 p-2.5 rounded-xl text-center">
+                    <span class="text-[10px] text-rose-400 block font-semibold">Rechazados</span>
+                    <strong id="count-rejected" class="text-white text-base">0</strong>
+                </div>
+            </div>
+
             <div class="text-xs font-semibold text-neutral-400 uppercase tracking-wider pt-2">Listado de Rutas Creadas</div>
             <div id="routes-list-container" class="space-y-2.5"></div>
 
-            <!-- Listado de Paradas de la Ruta Seleccionada -->
+            <!-- Listado de Paradas con Reordenamiento Manual y Evidencias -->
             <div id="route-stops-container" class="space-y-2.5 pt-2 hidden">
                 <div class="flex justify-between items-center">
-                    <h3 id="stops-route-header-title" class="text-xs font-semibold text-blue-400 uppercase tracking-wider">Paradas de la Ruta</h3>
-                    <button onclick="backToRoutesList()" class="text-xs text-neutral-400 hover:text-white"><i data-lucide="arrow-left" class="w-3.5 h-3.5 inline"></i> Volver a Rutas</button>
+                    <h3 id="stops-route-header-title" class="text-xs font-semibold text-blue-400 uppercase tracking-wider">Paradas y Reordenamiento</h3>
+                    <button onclick="backToRoutesList()" class="text-xs text-neutral-400 hover:text-white"><i data-lucide="arrow-left" class="w-3.5 h-3.5 inline"></i> Volver</button>
                 </div>
-                <div id="lista-paradas-ruta" class="space-y-2"></div>
+                <div id="lista-paradas-ruta" class="space-y-2.5"></div>
             </div>
         </section>
 
-        <!-- 4. PESTAÑA AGENDA (Tarjetas de Clientes, Foto, Datos, Edición) -->
+        <!-- PESTAÑA AGENDA -->
         <section id="view-agenda" class="p-4 space-y-4 hidden flex-1 bg-neutral-950">
             <div class="flex justify-between items-center">
                 <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Agenda de Clientes</h2>
@@ -211,12 +227,12 @@
             <div id="lista-agenda" class="space-y-3"></div>
         </section>
 
-        <!-- 1. PESTAÑA CAJA / FINANZAS -->
+        <!-- PESTAÑA CAJA (Diseño optimizado para móviles sin desbordes + Comparativa Total de las 3 dependencias) -->
         <section id="view-finances" class="p-4 space-y-4 hidden flex-1 bg-neutral-950">
-            <!-- Selector de Método de Pago -->
+            <!-- Modalidad de Recaudo -->
             <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-md space-y-3">
                 <div class="flex justify-between items-center">
-                    <span class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Modalidad de Recaudo</span>
+                    <span class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Modalidad Predominante</span>
                     <span id="payment-mode-badge" class="text-xs font-bold text-emerald-400">Efectivo / Transferencia</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs">
@@ -225,25 +241,7 @@
                 </div>
             </div>
 
-            <!-- Resumen Financiero: Valor Factura, Gastos, Balance -->
-            <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-md space-y-3">
-                <div class="flex justify-between items-center border-b border-neutral-800 pb-2.5">
-                    <span class="text-xs font-semibold text-neutral-400 uppercase">Detalle Financiero</span>
-                    <span class="text-xs font-bold text-emerald-400" id="fin-net-balance">$0 Neto</span>
-                </div>
-                <div class="grid grid-cols-2 gap-2 text-xs">
-                    <div class="bg-neutral-950 p-3 rounded-xl border border-neutral-800">
-                        <span class="text-[10px] text-neutral-400 block">Total Facturado</span>
-                        <strong id="fin-total-facturas" class="text-white text-base">$0</strong>
-                    </div>
-                    <div class="bg-neutral-950 p-3 rounded-xl border border-neutral-800">
-                        <span class="text-[10px] text-neutral-400 block">Total Gastos</span>
-                        <strong id="fin-total-gastos" class="text-rose-400 text-base">$0</strong>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Contador de Dinero por Denominación (Billetes y Monedas) -->
+            <!-- Contador de Dinero Físico -->
             <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-md space-y-3">
                 <div class="flex justify-between items-center">
                     <div>
@@ -255,20 +253,52 @@
                 <div id="denominations-container" class="space-y-2 pt-1 max-h-56 overflow-y-auto pr-1"></div>
             </div>
 
-            <!-- Registro de Gastos -->
+            <!-- Registro de Gastos (Diseño compacto vertical adaptado a celulares para evitar desplazamiento horizontal) -->
             <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow-md space-y-3">
                 <h3 class="text-xs font-bold text-white uppercase">Registrar Nuevo Gasto</h3>
-                <div class="flex gap-2 text-xs">
-                    <input type="text" id="expense-concept" placeholder="Concepto (Gasolina, Peaje)" class="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:outline-none">
-                    <input type="number" id="expense-amount" placeholder="Monto ($)" class="w-28 bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:outline-none">
-                    <button onclick="addExpense()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-xl shadow">Añadir</button>
+                <div class="space-y-2 text-xs">
+                    <input type="text" id="expense-concept" placeholder="Concepto (Gasolina, Peaje...)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
+                    <div class="flex gap-2">
+                        <input type="number" id="expense-amount" placeholder="Monto ($)" class="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
+                        <button onclick="addExpense()" class="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5 py-3 rounded-xl shadow">Añadir Gasto</button>
+                    </div>
                 </div>
                 <div id="expenses-list" class="space-y-1.5 pt-1"></div>
+            </div>
+
+            <!-- COMPARATIVA TOTAL DE LAS TRES DEPENDENCIAS (Al final de la pestaña Caja) -->
+            <div class="bg-gradient-to-br from-neutral-900 to-neutral-900/90 border border-blue-500/40 rounded-2xl p-4 shadow-xl space-y-3">
+                <div class="flex justify-between items-center border-b border-neutral-800 pb-2">
+                    <span class="text-xs font-bold text-blue-400 uppercase tracking-wider">Cierre Financiero TaT</span>
+                    <span id="final-balance-badge" class="text-xs font-extrabold text-emerald-400">$0 Neto</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800">
+                        <span class="text-[10px] text-neutral-400 block">1. Total Facturado</span>
+                        <strong id="summary-facturado" class="text-white text-sm">$0</strong>
+                    </div>
+                    <div class="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800">
+                        <span class="text-[10px] text-neutral-400 block">2. Dinero Físico</span>
+                        <strong id="summary-fisico" class="text-emerald-400 text-sm">$0</strong>
+                    </div>
+                    <div class="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800">
+                        <span class="text-[10px] text-neutral-400 block">3. Transferencias</span>
+                        <strong id="summary-transfer" class="text-cyan-400 text-sm">$0</strong>
+                    </div>
+                    <div class="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800">
+                        <span class="text-[10px] text-neutral-400 block">Gastos Operativos</span>
+                        <strong id="summary-gastos" class="text-rose-400 text-sm">$0</strong>
+                    </div>
+                </div>
+                <div class="bg-neutral-950 p-3 rounded-xl border border-blue-500/30 flex justify-between items-center">
+                    <span class="text-xs text-neutral-300 font-semibold">Total Neto Consolidado:</span>
+                    <span id="summary-neto-total" class="text-base font-extrabold text-emerald-400">$0</span>
+                </div>
             </div>
         </section>
     </main>
 
-    <!-- 8. BOTONES DE RETROCESO & NAVEGACIÓN INFERIOR MODERNA -->
+    <!-- NAVEGACIÓN INFERIOR -->
     <nav class="bg-neutral-900 border-t border-neutral-800 fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto shadow-2xl">
         <div class="grid grid-cols-4 py-2">
             <button onclick="switchTab('map')" id="nav-btn-map" class="flex flex-col items-center justify-center text-blue-500 transition">
@@ -290,50 +320,81 @@
         </div>
     </nav>
 
-    <!-- MODAL NUEVA / EDITAR PARADA -->
-    <div id="modal-parada" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl">
-            <h3 class="font-bold text-sm text-blue-400" id="modal-parada-title"><i data-lucide="map-pin-plus" class="w-4 h-4 inline mr-1"></i> Añadir Parada</h3>
-            <div class="space-y-2.5 text-xs">
-                <input type="text" id="parada-nombre" placeholder="Nombre del Negocio / Cliente" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <input type="text" id="parada-direccion" placeholder="Dirección o referencia" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <input type="number" id="parada-valor" placeholder="Valor de la factura ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
+    <!-- MODAL EDITAR PERFIL / FOTO CONDUCTOR -->
+    <div id="modal-driver" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
+            <h3 class="font-bold text-sm text-blue-400">Editar Perfil del Conductor</h3>
+            <div class="space-y-2">
+                <label class="block text-neutral-400">Nombre del Conductor</label>
+                <input type="text" id="edit-driver-name" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
+            </div>
+            <div class="space-y-2">
+                <label class="block text-neutral-400">URL de Imagen / Foto</label>
+                <input type="text" id="edit-driver-photo" placeholder="https://..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
             </div>
             <div class="flex gap-2 pt-2">
-                <button onclick="guardarNuevaParada()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-xs shadow">Guardar</button>
-                <button onclick="document.getElementById('modal-parada').classList.add('hidden')" class="flex-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 py-3 rounded-xl font-bold text-xs">Cancelar</button>
+                <button onclick="saveDriverProfile()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Guardar Cambios</button>
+                <button onclick="document.getElementById('modal-driver').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-2.5 rounded-xl font-bold">Cancelar</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL CREAR / EDITAR CLIENTE (AGENDA) -->
+    <!-- MODAL NUEVA / EDITAR PARADA CON EVIDENCIAS -->
+    <div id="modal-parada" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
+            <h3 class="font-bold text-sm text-blue-400" id="modal-parada-title">Añadir Parada</h3>
+            <div class="space-y-2.5">
+                <input type="text" id="parada-nombre" placeholder="Nombre del Negocio / Cliente" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+                <input type="text" id="parada-direccion" placeholder="Dirección o referencia" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+                <input type="number" id="parada-valor" placeholder="Valor de la factura ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="guardarNuevaParada()" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold shadow">Guardar</button>
+                <button onclick="document.getElementById('modal-parada').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EVIDENCIA DE ENTREGA / RECHAZO -->
+    <div id="modal-evidence" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
+            <h3 class="font-bold text-sm text-blue-400" id="evidence-modal-title">Registrar Evidencia de Pedido</h3>
+            <input type="hidden" id="evidence-stop-id">
+            <div class="space-y-2">
+                <label class="block text-neutral-400">Estado del Pedido</label>
+                <select id="evidence-status" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
+                    <option value="delivered">Entregado</option>
+                    <option value="rejected">Rechazado</option>
+                </select>
+            </div>
+            <div class="space-y-2">
+                <label class="block text-neutral-400">URL de Foto de Evidencia / Comprobante</label>
+                <input type="text" id="evidence-photo" placeholder="https://..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
+            </div>
+            <div class="space-y-2">
+                <label class="block text-neutral-400">Observaciones / Justificación de Rechazo</label>
+                <textarea id="evidence-notes" rows="2" placeholder="Local cerrado, cliente rechaza por precio..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white"></textarea>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="saveEvidence()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Guardar Evidencia</button>
+                <button onclick="document.getElementById('modal-evidence').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-2.5 rounded-xl font-bold">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CLIENTE AGENDA -->
     <div id="modal-client" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
             <h3 class="font-bold text-sm text-blue-400" id="modal-client-title">Nuevo Cliente</h3>
-            <form onsubmit="handleClientSubmit(event)" class="space-y-2.5 text-xs">
+            <form onsubmit="handleClientSubmit(event)" class="space-y-2.5">
                 <input type="hidden" id="client-edit-id">
-                <div>
-                    <label class="block text-neutral-400 mb-1">Nombre / Negocio</label>
-                    <input type="text" id="client-name" required placeholder="Tienda Don José" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
-                </div>
-                <div>
-                    <label class="block text-neutral-400 mb-1">Dirección</label>
-                    <input type="text" id="client-address" required placeholder="Calle 45 # 12-30" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
-                </div>
-                <div>
-                    <label class="block text-neutral-400 mb-1">Teléfono</label>
-                    <input type="text" id="client-phone" placeholder="3102345678" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
-                </div>
-                <div>
-                    <label class="block text-neutral-400 mb-1">URL de Foto (Opcional)</label>
-                    <input type="text" id="client-photo" placeholder="https://..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
-                </div>
-                <div>
-                    <label class="block text-neutral-400 mb-1">Observaciones</label>
-                    <textarea id="client-obs" rows="2" placeholder="Cobrar preferiblemente en la mañana..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white"></textarea>
-                </div>
+                <input type="text" id="client-name" required placeholder="Tienda Don José" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
+                <input type="text" id="client-address" required placeholder="Calle 45 # 12-30" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
+                <input type="text" id="client-phone" placeholder="3102345678" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
+                <input type="text" id="client-photo" placeholder="URL Foto (https://...)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
+                <textarea id="client-obs" rows="2" placeholder="Observaciones..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white"></textarea>
                 <div class="flex gap-2 pt-2">
-                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl font-bold shadow">Guardar Cliente</button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Guardar</button>
                     <button type="button" onclick="document.getElementById('modal-client').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-2.5 rounded-xl font-bold">Cancelar</button>
                 </div>
             </form>
@@ -344,10 +405,7 @@
     <div id="modal-route" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
             <h3 class="font-bold text-sm text-blue-400">Crear Nueva Ruta TaT</h3>
-            <div>
-                <label class="block text-neutral-400 mb-1">Nombre de la Ruta</label>
-                <input type="text" id="new-route-name" placeholder="Ej. Ruta Norte / Reparto Sabana" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
-            </div>
+            <input type="text" id="new-route-name" placeholder="Ej. Ruta Norte / Reparto Sabana" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
             <div class="flex gap-2 pt-2">
                 <button onclick="createNewRoute()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Crear Ruta</button>
                 <button onclick="document.getElementById('modal-route').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-2.5 rounded-xl font-bold">Cancelar</button>
@@ -355,7 +413,6 @@
         </div>
     </div>
 
-    <!-- Script principal de lógica unificada -->
     <script src="./app.js"></script>
 </body>
 </html>

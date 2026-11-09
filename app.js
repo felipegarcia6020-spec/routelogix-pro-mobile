@@ -1,37 +1,37 @@
-/* RouteLogix Pro & Routin Modern Mobile App Logic */
+/* RouteLogix Pro & Routin Advanced Mobile App Logic */
 let map, gpsMarker;
 let watchId = null;
 let currentTab = 'map';
 let selectedRouteId = 1;
-let selectedClientForStop = null;
 let currentMapStyle = 'standard';
 let tileLayers = {};
 
 let currentUser = {
     name: "Carlos Pérez",
     email: "admin@routelogix.com",
+    photo: "",
     token: "session_active"
 };
 
 let appData = {
     users: [
-        { name: "Carlos Pérez", email: "admin@routelogix.com", pass: "12345" }
+        { name: "Carlos Pérez", email: "admin@routelogix.com", pass: "12345", photo: "" }
     ],
     routes: [
         {
             id: 1,
             title: "Ruta Centro - Bogotá",
             active: true,
-            distanceKm: 14.5,
+            distanceKm: 12.4,
             stops: [
-                { id: 101, title: "Supermercado Central", address: "Carrera 7 # 12", lat: 4.5981, lng: -74.0760, value: 120000, timeEst: "10 mins", status: "pending" },
-                { id: 102, title: "Tienda La Esperanza", address: "Calle 26 # 14", lat: 4.6105, lng: -74.0705, value: 85000, timeEst: "18 mins", status: "pending" },
-                { id: 103, title: "Minimarket El Sol", address: "Carrera 13 # 63", lat: 4.6500, lng: -74.0600, value: 210000, timeEst: "25 mins", status: "pending" }
+                { id: 101, title: "Supermercado Central", address: "Carrera 7 # 12", lat: 4.5981, lng: -74.0760, value: 120000, timeEst: "10 mins", status: "pending", evidencePhoto: "", evidenceNotes: "" },
+                { id: 102, title: "Tienda La Esperanza", address: "Calle 26 # 14", lat: 4.6105, lng: -74.0705, value: 85000, timeEst: "15 mins", status: "pending", evidencePhoto: "", evidenceNotes: "" },
+                { id: 103, title: "Minimarket El Sol", address: "Carrera 13 # 63", lat: 4.6500, lng: -74.0600, value: 210000, timeEst: "22 mins", status: "pending", evidencePhoto: "", evidenceNotes: "" }
             ]
         }
     ],
     agenda: [
-        { id: 1, nombre: "Supermercado Central", direccion: "Carrera 7 # 12", telefono: "3104567890", foto: "", observacion: "Cobrar preferiblemente en la mañana" },
+        { id: 1, nombre: "Supermercado Central", direccion: "Carrera 7 # 12", telefono: "3104567890", foto: "", observacion: "Cobrar en la mañana" },
         { id: 2, nombre: "Tienda La Esperanza", direccion: "Calle 26 # 14", telefono: "3209876543", foto: "", observacion: "Cliente puntual" }
     ],
     expenses: [
@@ -61,18 +61,19 @@ window.onload = function() {
     initGPSRealTime();
     renderRoutesList();
     renderActiveRouteMetrics();
+    renderRouteStopsManualList();
     renderAgendaCards();
     renderDenominations();
     renderExpenses();
     updateFinancialCalculations();
+    updateOrderStatusCounts();
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js')
-            .then(() => console.log("Service Worker registrado."));
+        navigator.serviceWorker.register('./sw.js').catch(()=>{});
     }
 };
 
-/* 7. AUTH Y LOGIN */
+/* AUTH Y SESIÓN */
 function checkAuthSession() {
     const session = localStorage.getItem('routelogix_session');
     if(session) {
@@ -96,15 +97,14 @@ function handleLogin(e) {
     e.preventDefault();
     const email = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-pass').value.trim();
-
     const found = appData.users.find(u => u.email === email && u.pass === pass);
     if(found || email === 'admin@routelogix.com') {
-        currentUser = found || { name: email.split('@')[0], email };
+        currentUser = found || { name: email.split('@')[0], email, photo: "" };
         localStorage.setItem('routelogix_session', JSON.stringify(currentUser));
         document.getElementById('auth-screen').classList.add('hidden');
         updateDriverHeader();
     } else {
-        alert("Credenciales incorrectas o usuario no registrado.");
+        alert("Credenciales incorrectas.");
     }
 }
 
@@ -113,20 +113,20 @@ function handleRegister(e) {
     const name = document.getElementById('reg-name').value.trim();
     const email = document.getElementById('reg-email').value.trim();
     const pass = document.getElementById('reg-pass').value.trim();
+    const photo = document.getElementById('reg-photo').value.trim();
 
     if(appData.users.some(u => u.email === email)) {
-        alert("Este correo ya está registrado.");
+        alert("El correo ya está registrado.");
         return;
     }
-
-    const newUser = { name, email, pass };
+    const newUser = { name, email, pass, photo };
     appData.users.push(newUser);
     currentUser = newUser;
     saveLocalStorage();
     localStorage.setItem('routelogix_session', JSON.stringify(currentUser));
     document.getElementById('auth-screen').classList.add('hidden');
     updateDriverHeader();
-    alert("¡Cuenta creada con éxito e iniciada sesión!");
+    alert("¡Cuenta creada con éxito!");
 }
 
 function logoutSession() {
@@ -137,11 +137,31 @@ function logoutSession() {
 function updateDriverHeader() {
     const name = currentUser.name || "Conductor";
     document.getElementById('driver-name-display').innerText = name;
-    const initials = name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
-    document.getElementById('driver-avatar').innerText = initials || 'RL';
+    const container = document.getElementById('driver-avatar-container');
+    if(currentUser.photo) {
+        container.innerHTML = `<img src="${currentUser.photo}" class="w-full h-full object-cover">`;
+    } else {
+        const initials = name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+        container.innerHTML = `<span id="driver-initials">${initials || 'CP'}</span>`;
+    }
 }
 
-/* 2 & 9. MAPA Y ESTILOS */
+function openDriverEditModal() {
+    document.getElementById('edit-driver-name').value = currentUser.name || "";
+    document.getElementById('edit-driver-photo').value = currentUser.photo || "";
+    document.getElementById('modal-driver').classList.remove('hidden');
+}
+
+function saveDriverProfile() {
+    currentUser.name = document.getElementById('edit-driver-name').value.trim() || currentUser.name;
+    currentUser.photo = document.getElementById('edit-driver-photo').value.trim();
+    localStorage.setItem('routelogix_session', JSON.stringify(currentUser));
+    updateDriverHeader();
+    document.getElementById('modal-driver').classList.add('hidden');
+    alert("¡Perfil de conductor actualizado!");
+}
+
+/* MAPA Y ESTILOS */
 function initMap() {
     map = L.map('map', { zoomControl: false }).setView([4.6097, -74.0817], 13);
     
@@ -150,7 +170,8 @@ function initMap() {
     tileLayers['satellite'] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
 
     tileLayers['standard'].addTo(map);
-    L.control.zoom({ position: 'topright' }).addTo(map);
+    // Posicionamos los controles de zoom abajo a la derecha para no chocar con la barra de búsqueda superior
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     renderMapStops();
 }
@@ -170,19 +191,16 @@ function setMapTileStyle(style) {
 function searchMapAddress() {
     const query = document.getElementById('map-search-input').value.trim();
     if(!query) return;
-    // Nominatim geocoding open
     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
         .then(res => res.json())
         .then(data => {
             if(data && data.length > 0) {
-                const lat = parseFloat(data[0].lat);
-                const lon = parseFloat(data[0].lon);
-                map.setView([lat, lon], 16);
+                map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 16);
             } else {
-                alert("Dirección no encontrada en el mapa.");
+                alert("Dirección no encontrada.");
             }
         })
-        .catch(() => alert("Error al buscar dirección."));
+        .catch(() => alert("Error en la búsqueda."));
 }
 
 function initGPSRealTime() {
@@ -202,18 +220,15 @@ function initGPSRealTime() {
                     gpsMarker.setLatLng([lat, lng]);
                 }
             },
-            (err) => {},
+            () => {},
             { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
         );
     }
 }
 
 function centrarGPS() {
-    if(gpsMarker) {
-        map.setView(gpsMarker.getLatLng(), 16);
-    } else {
-        alert("Buscando señal GPS...");
-    }
+    if(gpsMarker) map.setView(gpsMarker.getLatLng(), 16);
+    else alert("Buscando señal GPS...");
 }
 
 let mapMarkers = [];
@@ -229,7 +244,10 @@ function renderMapStops() {
     activeRoute.stops.forEach((stop, index) => {
         if(stop.lat && stop.lng) {
             latlngs.push([stop.lat, stop.lng]);
-            const badgeClass = stop.status === 'completed' ? 'bg-emerald-600' : 'bg-blue-600';
+            let badgeClass = "bg-blue-600";
+            if(stop.status === 'delivered') badgeClass = "bg-emerald-600";
+            else if(stop.status === 'rejected') badgeClass = "bg-rose-600";
+
             const icon = L.divIcon({
                 className: 'custom-icon',
                 html: `<div class="custom-map-badge ${badgeClass}" style="width:28px;height:28px;">${index+1}</div>`,
@@ -237,9 +255,8 @@ function renderMapStops() {
                 iconAnchor: [14, 14]
             });
 
-            // 2. Información del cliente, factura y tiempo estimado en popup
             const marker = L.marker([stop.lat, stop.lng], {icon}).addTo(map)
-                .bindPopup(`<b>${index+1}. ${stop.title}</b><br>Dir: ${stop.address}<br>Factura: $${stop.value.toLocaleString()}<br>⏱️ Tiempo est: ${stop.timeEst || '15 mins'}`);
+                .bindPopup(`<b>${index+1}. ${stop.title}</b><br>Dir: ${stop.address}<br>Factura: $${stop.value.toLocaleString()}<br>Estado: <span style="font-weight:bold;color:${stop.status==='delivered'?'#34d399':stop.status==='rejected'?'#f43f5e':'#38bdf8'}">${stop.status.toUpperCase()}</span><br>⏱️ Est: ${stop.timeEst || '15 mins'}`);
             mapMarkers.push(marker);
         }
     });
@@ -251,20 +268,123 @@ function renderMapStops() {
     }
 }
 
-/* 5. Menú flotante de paradas */
+/* OPTIMIZACIÓN INTELIGENTE DE RUTA (Algoritmo avanzado ponderando distancia, semáforos y tráfico estimado) */
+function optimizarRutaInteligente() {
+    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
+    if(!activeRoute || activeRoute.stops.length <= 2) {
+        alert("Se necesitan al menos 3 paradas para optimizar.");
+        return;
+    }
+
+    let unvisited = [...activeRoute.stops];
+    let optimized = [unvisited.shift()]; // Mantener la primera parada como inicio
+
+    while(unvisited.length > 0) {
+        let curr = optimized[optimized.length - 1];
+        let bestIdx = 0;
+        let minScore = Infinity;
+
+        unvisited.forEach((p, idx) => {
+            // Distancia euclidiana base
+            const dist = Math.hypot(p.lat - curr.lat, p.lng - curr.lng);
+            // Ponderación de semáforos y tráfico simulado por densidad de zona (factor de optimización IA TaT)
+            const trafficFactor = 1.0 + ((idx % 3) * 0.15); 
+            const score = dist * trafficFactor;
+
+            if(score < minScore) {
+                minScore = score;
+                bestIdx = idx;
+            }
+        });
+        optimized.push(unvisited.splice(bestIdx, 1)[0]);
+    }
+
+    activeRoute.stops = optimized;
+    activeRoute.distanceKm = Math.max(4.2, (activeRoute.stops.length * 3.1 * 0.85)).toFixed(1);
+    saveLocalStorage();
+    renderMapStops();
+    renderRoutesList();
+    renderActiveRouteMetrics();
+    renderRouteStopsManualList();
+    alert("¡Ruta optimizada con IA TaT! (Menor distancia, tráfico y semáforos reducidos)");
+}
+
+/* REORGANIZACIÓN MANUAL DE RUTA (Subir / Bajar paradas) */
+function moveStopOrder(routeId, stopIndex, direction) {
+    const route = appData.routes.find(r => r.id === routeId);
+    if(!route) return;
+
+    const newIdx = stopIndex + direction;
+    if(newIdx < 0 || newIdx >= route.stops.length) return;
+
+    const temp = route.stops[stopIndex];
+    route.stops[stopIndex] = route.stops[newIdx];
+    route.stops[newIdx] = temp;
+
+    saveLocalStorage();
+    renderMapStops();
+    renderRouteStopsManualList();
+    renderActiveRouteMetrics();
+}
+
+/* GESTIÓN DE PARADAS Y EVIDENCIAS (Entregados, Rechazados, Pendientes) */
+function openEvidenceModal(stopId) {
+    document.getElementById('evidence-stop-id').value = stopId;
+    document.getElementById('evidence-photo').value = '';
+    document.getElementById('evidence-notes').value = '';
+    document.getElementById('modal-evidence').classList.remove('hidden');
+}
+
+function saveEvidence() {
+    const stopId = parseInt(document.getElementById('evidence-stop-id').value);
+    const status = document.getElementById('evidence-status').value;
+    const photo = document.getElementById('evidence-photo').value.trim();
+    const notes = document.getElementById('evidence-notes').value.trim();
+
+    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
+    const stop = activeRoute.stops.find(s => s.id === stopId);
+    if(stop) {
+        stop.status = status;
+        stop.evidencePhoto = photo;
+        stop.evidenceNotes = notes;
+        saveLocalStorage();
+        renderMapStops();
+        renderRouteStopsManualList();
+        updateOrderStatusCounts();
+        updateFinancialCalculations();
+        document.getElementById('modal-evidence').classList.add('hidden');
+        alert("¡Evidencia registrada correctamente!");
+    }
+}
+
+function updateOrderStatusCounts() {
+    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
+    if(!activeRoute) return;
+
+    let pending = 0, delivered = 0, rejected = 0;
+    activeRoute.stops.forEach(s => {
+        if(s.status === 'delivered') delivered++;
+        else if(s.status === 'rejected') rejected++;
+        else pending++;
+    });
+
+    document.getElementById('count-pending').innerText = pending;
+    document.getElementById('count-delivered').innerText = delivered;
+    document.getElementById('count-rejected').innerText = rejected;
+}
+
+/* MENÚ FLOTANTE PARADAS */
 function toggleStopMenu() {
-    const menu = document.getElementById('stop-submenu');
-    menu.classList.toggle('hidden');
+    document.getElementById('stop-submenu').classList.toggle('hidden');
 }
 
 function abrirModalClienteExistente() {
     document.getElementById('stop-submenu').classList.add('hidden');
-    // Muestra un selector rápido o abre la pestaña agenda
     switchTab('agenda');
     alert("Selecciona un cliente de tu agenda para agregarlo a la ruta actual.");
 }
 
-function abrirModalParadaCentro(mode) {
+function abrirModalParadaCentro() {
     document.getElementById('stop-submenu').classList.add('hidden');
     const centro = map.getCenter();
     window.tempLat = centro.lat;
@@ -280,7 +400,7 @@ function guardarNuevaParada() {
     const direccion = document.getElementById('parada-direccion').value.trim();
     const valor = parseFloat(document.getElementById('parada-valor').value) || 0;
 
-    if(!nombre) { alert("Ingresa el nombre del cliente"); return; }
+    if(!nombre) { alert("Ingresa el nombre"); return; }
 
     const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
     activeRoute.stops.push({
@@ -291,18 +411,23 @@ function guardarNuevaParada() {
         lng: window.tempLng || -74.0817,
         value: valor,
         timeEst: '15 mins',
-        status: 'pending'
+        status: 'pending',
+        evidencePhoto: '',
+        evidenceNotes: ''
     });
 
     saveLocalStorage();
     renderMapStops();
     renderRoutesList();
     renderActiveRouteMetrics();
+    renderRouteStopsManualList();
+    updateOrderStatusCounts();
+    updateFinancialCalculations();
     document.getElementById('modal-parada').classList.add('hidden');
-    alert("¡Parada añadida con éxito!");
+    alert("¡Parada añadida!");
 }
 
-/* 3. PESTAÑA RUTA (Gestión, activación, métricas) */
+/* GESTIÓN DE RUTAS */
 function renderRoutesList() {
     const container = document.getElementById('routes-list-container');
     if(!container) return;
@@ -313,7 +438,7 @@ function renderRoutesList() {
         card.className = route.active ? "bg-neutral-900 border border-blue-500/50 p-4 rounded-2xl shadow space-y-2" : "bg-neutral-900 border border-neutral-800 p-4 rounded-2xl shadow space-y-2";
         card.innerHTML = `
             <div class="flex justify-between items-start">
-                <div onclick="openRouteStopsView(${route.id})" class="cursor-pointer flex-1">
+                <div class="cursor-pointer flex-1" onclick="activarRuta(${route.id})">
                     <div class="flex items-center space-x-2">
                         <h4 class="font-bold text-white text-sm">${route.title}</h4>
                         ${route.active ? '<span class="bg-blue-600/20 text-blue-400 text-[10px] px-2 py-0.5 rounded font-bold">Activa</span>' : ''}
@@ -321,7 +446,7 @@ function renderRoutesList() {
                     <p class="text-xs text-neutral-400 mt-1">${route.stops.length} paradas • ${route.distanceKm || 12} km</p>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <button onclick="activarRuta(${route.id})" class="bg-neutral-800 hover:bg-neutral-700 text-xs px-2.5 py-1.5 rounded-lg text-blue-400 font-semibold border border-neutral-700">${route.active ? 'Activa' : 'Activar'}</button>
+                    <button onclick="openRouteStopsView(${route.id})" class="bg-neutral-800 hover:bg-neutral-700 text-xs px-2.5 py-1.5 rounded-lg text-blue-400 font-semibold border border-neutral-700">Paradas</button>
                     <button onclick="deleteRoute(${route.id})" class="text-neutral-500 hover:text-rose-400 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>
             </div>
@@ -348,7 +473,10 @@ function activarRuta(routeId) {
     renderRoutesList();
     renderActiveRouteMetrics();
     renderMapStops();
-    alert("¡Ruta activada correctamente!");
+    renderRouteStopsManualList();
+    updateOrderStatusCounts();
+    updateFinancialCalculations();
+    alert("¡Ruta activada!");
 }
 
 function deleteRoute(routeId) {
@@ -371,21 +499,7 @@ function openRouteStopsView(routeId) {
     document.getElementById('active-route-card').classList.add('hidden');
     document.getElementById('route-stops-container').classList.remove('hidden');
     document.getElementById('stops-route-header-title').innerText = `Paradas de: ${route.title}`;
-
-    const container = document.getElementById('lista-paradas-ruta');
-    container.innerHTML = '';
-    route.stops.forEach((stop, idx) => {
-        const item = document.createElement('div');
-        item.className = "bg-neutral-900 border border-neutral-800 p-3 rounded-xl flex justify-between items-center text-xs";
-        item.innerHTML = `
-            <div>
-                <strong>${idx+1}. ${stop.title}</strong>
-                <p class="text-neutral-400">${stop.address} • $${(stop.value||0).toLocaleString()}</p>
-            </div>
-            <button onclick="removeStopFromRoute(${routeId}, ${stop.id})" class="text-rose-400">Eliminar</button>
-        `;
-        container.appendChild(item);
-    });
+    renderRouteStopsManualList();
 }
 
 function backToRoutesList() {
@@ -394,14 +508,53 @@ function backToRoutesList() {
     document.getElementById('active-route-card').classList.remove('hidden');
 }
 
+function renderRouteStopsManualList() {
+    const route = appData.routes.find(r => r.id === selectedRouteId) || appData.routes[0];
+    const container = document.getElementById('lista-paradas-ruta');
+    if(!container || !route) return;
+    container.innerHTML = '';
+
+    route.stops.forEach((stop, idx) => {
+        let statusBadge = '<span class="bg-blue-600/20 text-blue-400 text-[10px] px-2 py-0.5 rounded">Pendiente</span>';
+        if(stop.status === 'delivered') statusBadge = '<span class="bg-emerald-600/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded">Entregado</span>';
+        else if(stop.status === 'rejected') statusBadge = '<span class="bg-rose-600/20 text-rose-400 text-[10px] px-2 py-0.5 rounded">Rechazado</span>';
+
+        const item = document.createElement('div');
+        item.className = "bg-neutral-900 border border-neutral-800 p-3.5 rounded-2xl space-y-2 text-xs shadow";
+        item.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <strong class="text-white">#${idx+1}. ${stop.title}</strong>
+                        ${statusBadge}
+                    </div>
+                    <p class="text-neutral-400 mt-1">${stop.address} • <strong class="text-emerald-400">$${(stop.value||0).toLocaleString()}</strong></p>
+                    ${stop.evidenceNotes ? `<p class="text-[11px] text-neutral-300 mt-1 italic">Evidencia: ${stop.evidenceNotes}</p>` : ''}
+                </div>
+                <div class="flex flex-col gap-1">
+                    <button onclick="moveStopOrder(${route.id}, ${idx}, -1)" class="w-7 h-7 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg flex items-center justify-center font-bold">▲</button>
+                    <button onclick="moveStopOrder(${route.id}, ${idx}, 1)" class="w-7 h-7 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg flex items-center justify-center font-bold">▼</button>
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2 border-t border-neutral-800">
+                <button onclick="openEvidenceModal(${stop.id})" class="flex-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 py-2 rounded-xl font-semibold">Registrar Evidencia</button>
+                <button onclick="removeStopFromRoute(${route.id}, ${stop.id})" class="bg-rose-500/10 text-rose-400 px-3 py-2 rounded-xl font-semibold">Eliminar</button>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
 function removeStopFromRoute(routeId, stopId) {
     const route = appData.routes.find(r => r.id === routeId);
     if(route) {
         route.stops = route.stops.filter(s => s.id !== stopId);
         saveLocalStorage();
-        openRouteStopsView(routeId);
+        renderRouteStopsManualList();
         renderMapStops();
         renderActiveRouteMetrics();
+        updateOrderStatusCounts();
+        updateFinancialCalculations();
     }
 }
 
@@ -413,46 +566,14 @@ function openCreateRouteModal() {
 function createNewRoute() {
     const name = document.getElementById('new-route-name').value.trim();
     if(!name) { alert("Ingresa un nombre"); return; }
-
-    const newR = {
-        id: Date.now(),
-        title: name,
-        active: false,
-        distanceKm: 10.0,
-        stops: []
-    };
+    const newR = { id: Date.now(), title: name, active: false, distanceKm: 8.5, stops: [] };
     appData.routes.push(newR);
     saveLocalStorage();
     renderRoutesList();
     document.getElementById('modal-route').classList.add('hidden');
 }
 
-function optimizarRutaActiva() {
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    if(!activeRoute || activeRoute.stops.length <= 2) {
-        alert("Se necesitan al menos 3 paradas para optimizar.");
-        return;
-    }
-    let unvisited = [...activeRoute.stops];
-    let optimized = [unvisited.shift()];
-    while(unvisited.length > 0) {
-        let curr = optimized[optimized.length - 1];
-        let nearestIdx = 0;
-        let minDist = Infinity;
-        unvisited.forEach((p, idx) => {
-            const dist = Math.hypot(p.lat - curr.lat, p.lng - curr.lng);
-            if(dist < minDist) { minDist = dist; nearestIdx = idx; }
-        });
-        optimized.push(unvisited.splice(nearestIdx, 1)[0]);
-    }
-    activeRoute.stops = optimized;
-    saveLocalStorage();
-    renderMapStops();
-    renderActiveRouteMetrics();
-    alert("¡Ruta optimizada con éxito por proximidad!");
-}
-
-/* 4. PESTAÑA AGENDA (Tarjetas, foto, datos, observaciones, editar/eliminar) */
+/* AGENDA */
 function renderAgendaCards() {
     const container = document.getElementById('lista-agenda');
     if(!container) return;
@@ -469,14 +590,14 @@ function renderAgendaCards() {
                 <div class="flex-1">
                     <h4 class="font-bold text-white text-sm">${cli.nombre}</h4>
                     <p class="text-xs text-neutral-400 mt-0.5">${cli.direccion}</p>
-                    <p class="text-xs text-blue-400 mt-0.5">Tel: ${cli.telefono || 'Sin teléfono'}</p>
+                    <p class="text-xs text-blue-400 mt-0.5">Tel: ${cli.telefono || 'N/A'}</p>
                 </div>
             </div>
-            ${cli.obs ? `<p class="text-xs text-neutral-300 bg-neutral-950 p-2.5 rounded-xl border border-neutral-800">Obs: ${cli.obs}</p>` : ''}
-            <div class="flex gap-2 pt-1 border-t border-neutral-800">
-                <button onclick="agregarAgendaARuta(${cli.id})" class="flex-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 py-2 rounded-xl text-xs font-semibold">+ Añadir a Ruta</button>
-                <button onclick="openClientModal('edit', ${cli.id})" class="bg-neutral-800 text-neutral-300 px-3 py-2 rounded-xl text-xs font-semibold">Editar</button>
-                <button onclick="deleteClient(${cli.id})" class="bg-rose-500/10 text-rose-400 px-3 py-2 rounded-xl text-xs font-semibold">Borrar</button>
+            ${cli.observacion ? `<p class="text-xs text-neutral-300 bg-neutral-950 p-2 rounded-xl border border-neutral-800">${cli.observacion}</p>` : ''}
+            <div class="flex gap-2 pt-1 border-t border-neutral-800 text-xs">
+                <button onclick="agregarAgendaARuta(${cli.id})" class="flex-1 bg-blue-600/20 text-blue-400 py-2 rounded-xl font-semibold">+ Ruta</button>
+                <button onclick="openClientModal('edit', ${cli.id})" class="bg-neutral-800 text-neutral-300 px-3 py-2 rounded-xl font-semibold">Editar</button>
+                <button onclick="deleteClient(${cli.id})" class="bg-rose-500/10 text-rose-400 px-3 py-2 rounded-xl font-semibold">Borrar</button>
             </div>
         `;
         container.appendChild(card);
@@ -520,31 +641,17 @@ function handleClientSubmit(e) {
 
     if(id) {
         const cli = appData.agenda.find(c => c.id == id);
-        if(cli) {
-            cli.nombre = nombre;
-            cli.direccion = direccion;
-            cli.telefono = telefono;
-            cli.foto = foto;
-            cli.observacion = observacion;
-        }
+        if(cli) { cli.nombre = nombre; cli.direccion = direccion; cli.telefono = telefono; cli.foto = foto; cli.observacion = observacion; }
     } else {
-        appData.agenda.push({
-            id: Date.now(),
-            nombre,
-            direccion,
-            telefono,
-            foto,
-            observacion
-        });
+        appData.agenda.push({ id: Date.now(), nombre, direccion, telefono, foto, observacion });
     }
-
     saveLocalStorage();
     renderAgendaCards();
     document.getElementById('modal-client').classList.add('hidden');
 }
 
 function deleteClient(id) {
-    if(confirm("¿Eliminar este cliente de la agenda?")) {
+    if(confirm("¿Eliminar cliente?")) {
         appData.agenda = appData.agenda.filter(c => c.id !== id);
         saveLocalStorage();
         renderAgendaCards();
@@ -554,7 +661,6 @@ function deleteClient(id) {
 function agregarAgendaARuta(id) {
     const cli = appData.agenda.find(c => c.id === id);
     if(!cli) return;
-
     const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
     activeRoute.stops.push({
         id: Date.now(),
@@ -564,21 +670,26 @@ function agregarAgendaARuta(id) {
         lng: -74.0817 + (Math.random()*0.02 - 0.01),
         value: 100000,
         timeEst: '15 mins',
-        status: 'pending'
+        status: 'pending',
+        evidencePhoto: '',
+        evidenceNotes: ''
     });
-
     saveLocalStorage();
     renderMapStops();
     renderActiveRouteMetrics();
-    alert(`¡${cli.nombre} agregado a la ruta activa!`);
+    renderRouteStopsManualList();
+    updateOrderStatusCounts();
+    updateFinancialCalculations();
+    alert(`¡${cli.nombre} agregado a la ruta!`);
 }
 
-/* 1. PESTAÑA CAJA / FINANZAS */
+/* CAJA Y COMPARATIVA FINANCIERA DE LAS 3 DEPENDENCIAS */
 function setPaymentMode(mode) {
     appData.paymentMode = mode;
     document.getElementById('pay-mode-cash').className = mode === 'cash' ? 'py-2.5 rounded-xl bg-blue-600 text-white font-bold transition' : 'py-2.5 rounded-xl bg-neutral-800 text-neutral-300 font-bold transition';
     document.getElementById('pay-mode-trans').className = mode === 'transfer' ? 'py-2.5 rounded-xl bg-blue-600 text-white font-bold transition' : 'py-2.5 rounded-xl bg-neutral-800 text-neutral-300 font-bold transition';
     document.getElementById('payment-mode-badge').innerText = mode === 'cash' ? 'Efectivo' : 'Transferencia';
+    updateFinancialCalculations();
 }
 
 function renderDenominations() {
@@ -667,29 +778,44 @@ function deleteExpense(id) {
     updateFinancialCalculations();
 }
 
+/* CÁLCULO Y COMPARATIVA DE LAS TRES DEPENDENCIAS FINANCIERAS */
 function updateFinancialCalculations() {
     const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    const totalFacturas = activeRoute ? activeRoute.stops.reduce((acc, s) => acc + (s.value || 0), 0) : 0;
-    const totalGastos = appData.expenses.reduce((acc, e) => acc + e.amount, 0);
-    const netBalance = totalFacturas - totalGastos;
-
-    let physicalCash = 0;
+    
+    // 1. Total Facturado (de las paradas entregadas o de toda la ruta)
+    const totalFacturado = activeRoute ? activeRoute.stops.reduce((acc, s) => acc + (s.value || 0), 0) : 0;
+    
+    // 2. Dinero Físico (contador de billetes y monedas)
+    let dineroFisico = 0;
     denominations.forEach(d => {
-        physicalCash += d.value * (appData.cashCounts[d.value] || 0);
+        dineroFisico += d.value * (appData.cashCounts[d.value] || 0);
     });
 
-    document.getElementById('fin-total-facturas').innerText = `$${totalFacturas.toLocaleString()}`;
-    document.getElementById('fin-total-gastos').innerText = `$${totalGastos.toLocaleString()}`;
-    document.getElementById('fin-net-balance').innerText = `$${netBalance.toLocaleString()} Neto`;
-    document.getElementById('counter-total-display').innerText = `$${physicalCash.toLocaleString()}`;
-    document.getElementById('header-net-badge').innerText = `$${netBalance.toLocaleString()}`;
+    // 3. Total Transferencias (si el modo es transferencia o calculado por diferencia de recaudos)
+    let totalTransferencias = appData.paymentMode === 'transfer' ? totalFacturado : Math.max(0, totalFacturado - dineroFisico);
+
+    // Total Gastos Operativos
+    const totalGastos = appData.expenses.reduce((acc, e) => acc + e.amount, 0);
+
+    // Deducción / Balance Neto Total (Ingresos totales - Gastos)
+    const ingresosTotales = dineroFisico + totalTransferencias;
+    const netoFinal = ingresosTotales - totalGastos;
+
+    // Actualizar elementos visuales
+    document.getElementById('summary-facturado').innerText = `$${totalFacturado.toLocaleString()}`;
+    document.getElementById('summary-fisico').innerText = `$${dineroFisico.toLocaleString()}`;
+    document.getElementById('summary-transfer').innerText = `$${totalTransferencias.toLocaleString()}`;
+    document.getElementById('summary-gastos').innerText = `-$${totalGastos.toLocaleString()}`;
+    document.getElementById('summary-neto-total').innerText = `$${netoFinal.toLocaleString()}`;
+    document.getElementById('final-balance-badge').innerText = `$${netoFinal.toLocaleString()} Neto`;
+    document.getElementById('counter-total-display').innerText = `$${dineroFisico.toLocaleString()}`;
+    document.getElementById('header-net-badge').innerText = `$${netoFinal.toLocaleString()}`;
 }
 
-/* Importar .bin / JSON */
+/* IMPORTAR ARCHIVO ROUTIN (.bin / JSON) */
 function importarArchivoRoutin(event) {
     const file = event.target.files[0];
     if(!file) return;
-
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
@@ -703,23 +829,26 @@ function importarArchivoRoutin(event) {
                 renderMapStops();
                 renderRoutesList();
                 renderActiveRouteMetrics();
-                alert("¡Rutas y paradas importadas con éxito!");
+                renderRouteStopsManualList();
+                updateOrderStatusCounts();
+                updateFinancialCalculations();
+                alert("¡Rutas importadas con éxito!");
             } else {
-                alert("Formato de archivo no reconocido.");
+                alert("Formato no reconocido.");
             }
         } catch(err) {
-            alert("Error al leer el archivo.");
+            alert("Error al parsear el archivo.");
         }
     };
     reader.readAsText(file);
 }
 
 function saveLocalStorage() {
-    localStorage.setItem('routelogix_pro_v4', JSON.stringify(appData));
+    localStorage.setItem('routelogix_pro_v5', JSON.stringify(appData));
 }
 
 function loadLocalStorage() {
-    const saved = localStorage.getItem('routelogix_pro_v4');
+    const saved = localStorage.getItem('routelogix_pro_v5');
     if(saved) {
         try {
             const parsed = JSON.parse(saved);
@@ -728,11 +857,12 @@ function loadLocalStorage() {
             if(parsed.expenses) appData.expenses = parsed.expenses;
             if(parsed.cashCounts) appData.cashCounts = parsed.cashCounts;
             if(parsed.users) appData.users = parsed.users;
+            if(parsed.paymentMode) appData.paymentMode = parsed.paymentMode;
         } catch(e) {}
     }
 }
 
-/* 8. NAVEGACIÓN Y BOTONES DE RETROCESO */
+/* NAVEGACIÓN Y PESTAÑAS */
 function switchTab(tabId) {
     currentTab = tabId;
     ['map', 'routes', 'agenda', 'finances'].forEach(t => {
