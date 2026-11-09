@@ -1,4 +1,4 @@
-const CACHE_NAME = 'routelogix-enterprise-v25';
+const CACHE_NAME = 'routelogix-enterprise-v26';
 const ASSETS_TO_CACHE = [
   './index.html',
   './style.css',
@@ -39,9 +39,7 @@ self.addEventListener('fetch', (event) => {
           cache.put(event.request, networkResponse.clone());
           return networkResponse;
         });
-      }).catch(() => {
-        // Fallback offline genérico si fuera necesario
-      });
+      }).catch(() => {});
     })
   );
 });
