@@ -28,17 +28,14 @@ let state = {
     polylineLayer: null,
     gpsMarker: null,
     gpsWatchId: null,
-    isLiveTracking: true,
-    lastPosition: null,
-    lastTimestamp: null,
-    currentSpeedKmH: 0
+    isLiveTracking: true
 };
 
 const TRANSPORT_ICONS = {
-    walk: { emoji: '🚶', bg: '#3b82f6' },
+    walk: { emoji: '🚶', bg: '#06b6d4' },
     bike: { emoji: '🚲', bg: '#10b981' },
     moto: { emoji: '🏍️', bg: '#f59e0b' },
-    car: { emoji: '🚗', bg: '#6366f1' },
+    car: { emoji: '🚗', bg: '#3b82f6' },
     truck: { emoji: '🚚', bg: '#f43f5e' }
 };
 
@@ -47,7 +44,7 @@ let db = null;
 function initIndexedDB() {
     return new Promise((resolve) => {
         try {
-            const request = indexedDB.open('RouteLogixOfflineMapsDB', 1);
+            const request = indexedDB.open('RouteLogixOfflineMapsDB_v14', 1);
             request.onerror = () => resolve(null);
             request.onsuccess = () => {
                 db = request.result;
@@ -128,18 +125,18 @@ function updateNetworkStatus() {
     const text = document.getElementById('network-text');
     if (!badge || !dot || !text) return;
     if (isOnline) {
-        badge.className = "px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 flex items-center gap-1";
+        badge.className = "px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1";
         dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse";
         text.innerText = "Online";
     } else {
-        badge.className = "px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 flex items-center gap-1";
+        badge.className = "px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1";
         dot.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
         text.innerText = "Offline";
     }
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v12');
+    const saved = localStorage.getItem('routelogix_tat_state_v14');
     if (saved) {
         try { 
             const parsed = JSON.parse(saved);
@@ -161,7 +158,7 @@ function saveStateToStorage() {
         cashDenominations: state.cashDenominations,
         isLiveTracking: state.isLiveTracking
     };
-    localStorage.setItem('routelogix_tat_state_v12', JSON.stringify(persistData));
+    localStorage.setItem('routelogix_tat_state_v14', JSON.stringify(persistData));
 }
 
 function initAuthScreen() {
@@ -182,13 +179,13 @@ function switchAuthTab(tab) {
     const formReg = document.getElementById('form-register');
     if (!btnLogin || !btnReg || !formLogin || !formReg) return;
     if (tab === 'login') {
-        btnLogin.className = "flex-1 py-2 rounded-lg bg-blue-600 text-white transition";
-        btnReg.className = "flex-1 py-2 rounded-lg text-neutral-400 transition";
+        btnLogin.className = "flex-1 py-2.5 rounded-xl bg-cyan-500 text-neutral-950 shadow-md transition-all";
+        btnReg.className = "flex-1 py-2.5 rounded-xl text-neutral-400 hover:text-white transition-all";
         formLogin.classList.remove('hidden'); 
         formReg.classList.add('hidden');
     } else {
-        btnReg.className = "flex-1 py-2 rounded-lg bg-emerald-600 text-white transition";
-        btnLogin.className = "flex-1 py-2 rounded-lg text-neutral-400 transition";
+        btnReg.className = "flex-1 py-2.5 rounded-xl bg-emerald-500 text-neutral-950 shadow-md transition-all";
+        btnLogin.className = "flex-1 py-2.5 rounded-xl text-neutral-400 hover:text-white transition-all";
         formReg.classList.remove('hidden'); 
         formLogin.classList.add('hidden');
     }
@@ -197,11 +194,8 @@ function switchAuthTab(tab) {
 function handleLoginDirect() {
     const emailInput = document.getElementById('login-email');
     const email = emailInput ? emailInput.value.trim() : "conductor@routelogix.com";
-    if (!email) {
-        alert("Por favor ingrese su correo electrónico");
-        return;
-    }
-    state.user = { name: email.split('@')[0], email: email, photo: null };
+    if (!email) { alert("Ingrese su correo"); return; }
+    state.user = { name: email.split('@')[0], email, photo: null };
     saveStateToStorage();
     const authScreen = document.getElementById('auth-screen');
     if (authScreen) authScreen.classList.add('hidden');
@@ -213,14 +207,9 @@ function handleLoginDirect() {
 function handleRegisterDirect() {
     const nameInput = document.getElementById('reg-name');
     const emailInput = document.getElementById('reg-email');
-    
     const name = nameInput ? nameInput.value.trim() : "";
     const email = emailInput ? emailInput.value.trim() : "";
-
-    if (!name || !email) {
-        alert("Por favor ingrese el nombre y correo electrónico");
-        return;
-    }
+    if (!name || !email) { alert("Ingrese nombre y correo"); return; }
     state.user = { name, email, photo: null };
     saveStateToStorage();
     const authScreen = document.getElementById('auth-screen');
@@ -273,7 +262,7 @@ function switchTab(tabId) {
         if (!sec || !btn) return;
         if (t === tabId) {
             sec.classList.remove('hidden');
-            btn.className = "flex flex-col items-center justify-center text-blue-500 transition";
+            btn.className = "flex flex-col items-center justify-center text-cyan-400 transition";
         } else {
             sec.classList.add('hidden');
             btn.className = "flex flex-col items-center justify-center text-neutral-400 hover:text-white transition";
@@ -326,7 +315,7 @@ function setMapTileStyle(styleName) {
     state.mapTileStyle = styleName;
     ['standard', 'dark', 'satellite'].forEach(s => {
         const btn = document.getElementById(`style-${s}`);
-        if (btn) btn.className = s === styleName ? "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium" : "px-2.5 py-1 rounded-lg text-neutral-300 font-medium";
+        if (btn) btn.className = s === styleName ? "px-3 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 font-bold transition" : "px-3 py-1.5 rounded-xl text-neutral-300 hover:text-white font-bold transition";
     });
     if (currentTileLayerObj && state.map) state.map.removeLayer(currentTileLayerObj);
     if (state.map) {
@@ -426,8 +415,8 @@ function updateLiveGPSMarker(lat, lng, speed) {
     if (speedDisplay) speedDisplay.innerText = speed.toFixed(1) + ' km/h';
     if (iconIndicator) iconIndicator.innerText = cfg.emoji;
 
-    const markerHtml = `<div style="background-color: ${cfg.bg}; width: 38px; height: 38px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">${cfg.emoji}</div>`;
-    const customIcon = L.divIcon({ html: markerHtml, className: 'gps-transport-marker', iconSize: [38, 38], iconAnchor: [19, 19] });
+    const markerHtml = `<div style="background-color: ${cfg.bg}; width: 40px; height: 40px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid #030712; box-shadow: 0 0 20px rgba(6,182,212,0.6);">${cfg.emoji}</div>`;
+    const customIcon = L.divIcon({ html: markerHtml, className: 'gps-transport-marker', iconSize: [40, 40], iconAnchor: [20, 20] });
 
     if (state.gpsMarker) {
         state.gpsMarker.setLatLng([lat, lng]);
@@ -442,11 +431,11 @@ function toggleTrackingLive() {
     const btn = document.getElementById('tracking-toggle-btn');
     if (!btn) return;
     if (state.isLiveTracking) {
-        btn.className = "absolute bottom-20 right-4 z-20 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xl font-bold text-xs flex items-center gap-1.5 active:scale-95 transition";
+        btn.className = "absolute bottom-20 right-4 z-20 px-4 py-3 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 rounded-2xl shadow-2xl font-black text-xs flex items-center gap-2 active:scale-95 transition";
         btn.innerHTML = '<i data-lucide="radio" class="w-4 h-4 animate-pulse"></i> <span>GPS Vivo: ON</span>';
         centrarGPS();
     } else {
-        btn.className = "absolute bottom-20 right-4 z-20 px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl shadow-xl font-bold text-xs flex items-center gap-1.5 active:scale-95 transition";
+        btn.className = "absolute bottom-20 right-4 z-20 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-2xl shadow-2xl font-bold text-xs flex items-center gap-2 active:scale-95 transition";
         btn.innerHTML = '<i data-lucide="radio-off" class="w-4 h-4"></i> <span>GPS Vivo: OFF</span>';
     }
     try { lucide.createIcons(); } catch(e){}
@@ -494,11 +483,9 @@ function guardarNuevaParada() {
     const direccion = document.getElementById('parada-direccion');
     const valor = document.getElementById('parada-valor');
     const modal = document.getElementById('modal-parada');
-
     const name = nombre ? nombre.value : '';
     const address = direccion ? direccion.value : '';
     const value = valor ? parseFloat(valor.value) || 0 : 0;
-
     if (!name) { alert("Ingrese nombre"); return; }
     const center = state.map ? state.map.getCenter() : { lat: 4.6097, lng: -74.0817 };
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
@@ -512,9 +499,7 @@ function abrirModalClienteExistente() {
     const submenu = document.getElementById('stop-submenu');
     if (submenu) submenu.classList.add('hidden');
     if (state.agenda.length === 0) { alert("Agenda vacía"); switchTab('agenda'); return; }
-    const clientName = prompt("Cliente a añadir:
-" + state.agenda.map(c => "- " + c.name).join('
-'));
+    const clientName = prompt("Cliente a añadir:\n" + state.agenda.map(c => "- " + c.name).join('\n'));
     if (!clientName) return;
     const client = state.agenda.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()));
     if (!client) { alert("No encontrado"); return; }
@@ -548,7 +533,7 @@ function optimizarRutaInteligente() {
     activeRoute.stops = [...optimized, ...completed];
     saveStateToStorage();
     renderAll();
-    alert("¡Ruta optimizada por IA!");
+    alert("¡Ruta optimizada con IA Cuántica!");
 }
 
 function renderAll() {
@@ -573,13 +558,13 @@ function renderMapMarkersAndPolyline() {
     let latlngs = [];
     activeRoute.stops.forEach((stop, index) => {
         latlngs.push([stop.lat, stop.lng]);
-        let color = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#3b82f6';
-        let html = `<div style="background-color: ${color}; width: 26px; height: 26px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; border: 2px solid white;">${index + 1}</div>`;
-        let marker = L.marker([stop.lat, stop.lng], { icon: L.divIcon({ html, iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(state.map);
-        marker.bindPopup(`<div class="p-1 text-xs"><strong>#${index+1} - ${stop.name}</strong><br>${stop.address}<br><button onclick="openEvidenceModal('${stop.id}')" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Gestionar</button></div>`);
+        let color = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
+        let html = `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; color: #030712; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);">${index + 1}</div>`;
+        let marker = L.marker([stop.lat, stop.lng], { icon: L.divIcon({ html, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(state.map);
+        marker.bindPopup(`<div class="p-1.5 text-xs bg-neutral-900 text-white rounded-xl"><strong>#${index+1} - ${stop.name}</strong><br>${stop.address}<br><button onclick="openEvidenceModal('${stop.id}')" class="mt-2 bg-cyan-500 text-neutral-950 font-bold px-3 py-1.5 rounded-lg shadow">Gestionar</button></div>`);
         state.markerList.push(marker);
     });
-    if (latlngs.length > 0) state.polylineLayer = L.polyline(latlngs, { color: '#3b82f6', weight: 4, opacity: 0.8 }).addTo(state.map);
+    if (latlngs.length > 0) state.polylineLayer = L.polyline(latlngs, { color: '#06b6d4', weight: 4, opacity: 0.9 }).addTo(state.map);
 }
 
 function renderActiveRouteCard() {
@@ -618,9 +603,9 @@ function renderRoutesList() {
     const container = document.getElementById('routes-list-container');
     if (!container) return;
     container.innerHTML = state.routes.map(r => `
-        <div class="bg-neutral-900 border ${r.active ? 'border-blue-500' : 'border-neutral-800'} rounded-xl p-3 flex justify-between items-center text-xs">
-            <div><strong class="text-white">${r.name}</strong><p class="text-[10px] text-neutral-400">${r.stops.length} paradas</p></div>
-            ${!r.active ? `<button onclick="makeRouteActive('${r.id}')" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg font-semibold">Activar</button>` : '<span class="text-emerald-400 font-bold">Activa</span>'}
+        <div class="bg-neutral-900 border ${r.active ? 'border-cyan-500 shadow-lg shadow-cyan-500/10' : 'border-neutral-800'} rounded-2xl p-4 flex justify-between items-center text-xs">
+            <div><strong class="text-white text-sm">${r.name}</strong><p class="text-[11px] text-neutral-400 mt-0.5">${r.stops.length} paradas asignadas</p></div>
+            ${!r.active ? `<button onclick="makeRouteActive('${r.id}')" class="bg-cyan-500 text-neutral-950 font-bold px-3.5 py-2 rounded-xl shadow">Activar</button>` : '<span class="text-cyan-400 font-black bg-cyan-500/20 px-3 py-1 rounded-full border border-cyan-500/30">Activa</span>'}
         </div>
     `).join('');
 }
@@ -667,9 +652,9 @@ function renderAgendaList() {
     const container = document.getElementById('lista-agenda');
     if (!container) return;
     container.innerHTML = state.agenda.map(c => `
-        <div class="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex justify-between items-center text-xs">
-            <div><strong class="text-white">${c.name}</strong><p class="text-[10px] text-neutral-400">${c.address}</p></div>
-            <button onclick="addClientToActiveRoute('${c.id}')" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-xl">+</button>
+        <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex justify-between items-center text-xs">
+            <div><strong class="text-white text-sm">${c.name}</strong><p class="text-[11px] text-neutral-400 mt-0.5">${c.address}</p></div>
+            <button onclick="addClientToActiveRoute('${c.id}')" class="bg-cyan-500 text-neutral-950 font-black px-3.5 py-2 rounded-xl shadow">+</button>
         </div>
     `).join('');
 }
@@ -718,12 +703,12 @@ function initDenominationsUI() {
     if (!container) return;
     const denoms = [{k:'100000',l:'$100.000'},{k:'50000',l:'$50.000'},{k:'20000',l:'$20.000'},{k:'10000',l:'$10.000'},{k:'5000',l:'$5.000'},{k:'2000',l:'$2.000'},{k:'1000',l:'$1.000'},{k:'coins',l:'Monedas'}];
     container.innerHTML = denoms.map(d => `
-        <div class="flex justify-between items-center bg-neutral-950 p-2 rounded-xl border border-neutral-800 text-xs">
-            <span class="text-neutral-300">${d.l}</span>
-            <div class="flex items-center space-x-2">
-                <button onclick="updateDenom('${d.k}', -1)" class="w-7 h-7 bg-neutral-800 text-white rounded-lg font-bold">-</button>
-                <span id="denom-count-${d.k}" class="w-6 text-center font-bold text-white">${state.cashDenominations[d.k] || 0}</span>
-                <button onclick="updateDenom('${d.k}', 1)" class="w-7 h-7 bg-neutral-800 text-white rounded-lg font-bold">+</button>
+        <div class="flex justify-between items-center bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800 text-xs">
+            <span class="text-neutral-300 font-bold">${d.l}</span>
+            <div class="flex items-center space-x-2.5">
+                <button onclick="updateDenom('${d.k}', -1)" class="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-black transition">-</button>
+                <span id="denom-count-${d.k}" class="w-7 text-center font-black text-cyan-400 text-sm">${state.cashDenominations[d.k] || 0}</span>
+                <button onclick="updateDenom('${d.k}', 1)" class="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-black transition">+</button>
             </div>
         </div>
     `).join('');
@@ -760,7 +745,10 @@ function renderExpenses() {
     const container = document.getElementById('expenses-list');
     if (!container) return;
     container.innerHTML = state.expenses.map(e => `
-        <div class="flex justify-between bg-neutral-950 p-2 rounded-xl text-xs"><span>${e.concept}</span><span class="text-rose-400">-$${e.amount.toLocaleString()}</span></div>
+        <div class="flex justify-between bg-neutral-950 p-3 rounded-2xl text-xs border border-neutral-800">
+            <span class="font-medium text-white">${e.concept}</span>
+            <span class="text-rose-400 font-black">-$${e.amount.toLocaleString()}</span>
+        </div>
     `).join('');
 }
 
@@ -792,10 +780,7 @@ function renderFinances() {
 
 function openCreateRouteModal() {
     const modal = document.getElementById('modal-route');
-    if (modal) {
-        modal.classList.add('flex');
-        modal.classList.remove('hidden');
-    }
+    if (modal) modal.classList.remove('hidden');
 }
 
 function createNewRoute() {
@@ -807,4 +792,23 @@ function createNewRoute() {
     saveStateToStorage();
     if (modal) modal.classList.add('hidden');
     renderAll();
+}
+
+function importarArchivoRoutin(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data.routes) state.routes = data.routes;
+            if (data.agenda) state.agenda = data.agenda;
+            saveStateToStorage();
+            renderAll();
+            alert("¡Rutas y Agenda importadas correctamente!");
+        } catch(err) {
+            alert("Error al parsear el archivo de ruta.");
+        }
+    };
+    reader.readAsText(file);
 }
