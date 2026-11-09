@@ -12,19 +12,18 @@ let state = {
             active: true,
             transportMode: 'car',
             stops: [
-                { id: 's1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', lat: 4.6097, lng: -74.0817, status: 'pending', value: 125000, paymentMethod: 'cash', evidencePhoto: null, evidenceNotes: '' },
-                { id: 's2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', lat: 4.6150, lng: -74.0750, status: 'pending', value: 310000, paymentMethod: 'cash', evidencePhoto: null, evidenceNotes: '' },
-                { id: 's3', name: 'Minimercado Central', address: 'Calle 19 # 3-15', lat: 4.6030, lng: -74.0700, status: 'pending', value: 180000, paymentMethod: 'cash', evidencePhoto: null, evidenceNotes: '' }
+                { id: 's1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', lat: 4.6097, lng: -74.0817, status: 'pending', value: 125000, paymentMethod: 'cash', evidenceNotes: '' },
+                { id: 's2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', lat: 4.6150, lng: -74.0750, status: 'pending', value: 310000, paymentMethod: 'cash', evidenceNotes: '' },
+                { id: 's3', name: 'Minimercado Central', address: 'Calle 19 # 3-15', lat: 4.6030, lng: -74.0700, status: 'pending', value: 180000, paymentMethod: 'cash', evidenceNotes: '' }
             ]
         }
     ],
     agenda: [
-        { id: 'c1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', phone: '3101234567', photo: null, obs: 'Cliente prioritario' },
-        { id: 'c2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', phone: '3209876543', photo: null, obs: 'Pide factura electrónica' }
+        { id: 'c1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', phone: '3101234567', obs: 'Cliente prioritario' },
+        { id: 'c2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', phone: '3209876543', obs: 'Pide factura electrónica' }
     ],
     expenses: [],
     cashDenominations: { '100000': 0, '50000': 0, '20000': 0, '10000': 0, '5000': 0, '2000': 0, '1000': 0, 'coins': 0 },
-    viewingRouteId: null,
     map: null,
     markerList: [],
     polylineLayer: null,
@@ -36,13 +35,12 @@ let state = {
     currentSpeedKmH: 0
 };
 
-const TRANSPORT_SPEEDS = { walk: 5, bike: 15, moto: 35, car: 30, truck: 20 };
 const TRANSPORT_ICONS = {
-    walk: { emoji: '🚶', bg: '#3b82f6', label: 'Caminando' },
-    bike: { emoji: '🚲', bg: '#10b981', label: 'Bicicleta' },
-    moto: { emoji: '🏍️', bg: '#f59e0b', label: 'Moto' },
-    car: { emoji: '🚗', bg: '#6366f1', label: 'Carro' },
-    truck: { emoji: '🚚', bg: '#f43f5e', label: 'Camión' }
+    walk: { emoji: '🚶', bg: '#3b82f6' },
+    bike: { emoji: '🚲', bg: '#10b981' },
+    moto: { emoji: '🏍️', bg: '#f59e0b' },
+    car: { emoji: '🚗', bg: '#6366f1' },
+    truck: { emoji: '🚚', bg: '#f43f5e' }
 };
 
 let db = null;
@@ -70,8 +68,7 @@ function saveTileToDB(url, blob) {
     if (!db) return;
     try {
         const tx = db.transaction('tiles', 'readwrite');
-        const store = tx.objectStore('tiles');
-        store.put({ url, blob, timestamp: Date.now() });
+        tx.objectStore('tiles').put({ url, blob, timestamp: Date.now() });
     } catch(err) {}
 }
 
@@ -80,8 +77,7 @@ function getTileFromDB(url) {
         if (!db) { resolve(null); return; }
         try {
             const tx = db.transaction('tiles', 'readonly');
-            const store = tx.objectStore('tiles');
-            const req = store.get(url);
+            const req = tx.objectStore('tiles').get(url);
             req.onsuccess = () => resolve(req.result ? req.result.blob : null);
             req.onerror = () => resolve(null);
         } catch(err) { resolve(null); }
@@ -93,8 +89,7 @@ function countTilesInDB() {
         if (!db) { resolve(0); return; }
         try {
             const tx = db.transaction('tiles', 'readonly');
-            const store = tx.objectStore('tiles');
-            const req = store.count();
+            const req = tx.objectStore('tiles').count();
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => resolve(0);
         } catch(err) { resolve(0); }
@@ -107,13 +102,8 @@ async function updateOfflineTilesCountDisplay() {
     const countText = document.getElementById('offline-tiles-count');
     if (countText) countText.innerText = count + ' tiles';
     if (statusText) {
-        if (count > 0) {
-            statusText.innerText = `${count} tiles offline`;
-            statusText.className = "text-emerald-400 font-bold text-[11px]";
-        } else {
-            statusText.innerText = "Sin descargar";
-            statusText.className = "text-amber-400 font-bold text-[11px]";
-        }
+        statusText.innerText = count > 0 ? `${count} tiles offline` : "Sin descargar";
+        statusText.className = count > 0 ? "text-emerald-400 font-bold text-[11px]" : "text-amber-400 font-bold text-[11px]";
     }
 }
 
@@ -149,13 +139,13 @@ function updateNetworkStatus() {
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v7');
+    const saved = localStorage.getItem('routelogix_tat_state_v8');
     if (saved) {
         try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {}
     }
 }
 function saveStateToStorage() {
-    localStorage.setItem('routelogix_tat_state_v7', JSON.stringify(state));
+    localStorage.setItem('routelogix_tat_state_v8', JSON.stringify(state));
 }
 
 function initAuthScreen() {
@@ -200,13 +190,11 @@ function handleLoginDirect() {
 function handleRegisterDirect() {
     const name = document.getElementById('reg-name').value.trim();
     const email = document.getElementById('reg-email').value.trim();
-    const photo = document.getElementById('reg-photo-base64').value || null;
-    
     if (!name || !email) {
         alert("Por favor ingrese el nombre y correo electrónico");
         return;
     }
-    state.user = { name, email, photo };
+    state.user = { name, email, photo: null };
     saveStateToStorage();
     document.getElementById('auth-screen').classList.add('hidden');
     updateDriverDisplay();
@@ -219,25 +207,11 @@ function logoutSession() {
     document.getElementById('auth-screen').classList.remove('hidden');
 }
 
-function handleDriverPhotoSelect(e) {
-    const file = e.target.files[0];
-    if (!file) {
-        document.getElementById('reg-photo-base64').value = '';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = evt => document.getElementById('reg-photo-base64').value = evt.target.result;
-    reader.readAsDataURL(file);
-}
-
 function updateDriverDisplay() {
     if (!state.user) return;
     document.getElementById('driver-name-display').innerText = state.user.name;
     const initials = state.user.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
     document.getElementById('driver-initials').innerText = initials;
-    if (state.user.photo) {
-        document.getElementById('driver-avatar-container').innerHTML = `<img src="${state.user.photo}" class="w-full h-full object-cover">`;
-    }
 }
 
 function openDriverEditModal() {
@@ -246,22 +220,9 @@ function openDriverEditModal() {
     document.getElementById('modal-driver').classList.remove('hidden');
 }
 
-function handleEditDriverPhotoSelect(e) {
-    const file = e.target.files[0];
-    if (!file) {
-        document.getElementById('edit-driver-photo-base64').value = '';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = evt => document.getElementById('edit-driver-photo-base64').value = evt.target.result;
-    reader.readAsDataURL(file);
-}
-
 function saveDriverProfile() {
     const name = document.getElementById('edit-driver-name').value;
-    const photo = document.getElementById('edit-driver-photo-base64').value;
     if (name) state.user.name = name;
-    if (photo) state.user.photo = photo;
     saveStateToStorage();
     document.getElementById('modal-driver').classList.add('hidden');
     updateDriverDisplay();
@@ -286,7 +247,7 @@ function switchTab(tabId) {
 
 function initMap() {
     state.map = L.map('map', { zoomControl: false }).setView([4.6097, -74.0817], 14);
-    setMapTileStyle('standard', false);
+    setMapTileStyle('standard');
     setTimeout(() => state.map.invalidateSize(), 300);
 }
 
@@ -296,24 +257,18 @@ L.OfflineTileLayer = L.TileLayer.extend({
         tile.alt = "";
         L.DomEvent.on(tile, 'load', L.Util.bind(this._tileOnLoad, this, done, tile));
         L.DomEvent.on(tile, 'error', L.Util.bind(this._tileOnError, this, done, tile));
-
         const url = this.getTileUrl(coords);
-        
         getTileFromDB(url).then(blob => {
             if (blob) {
                 tile.src = URL.createObjectURL(blob);
+            } else if (navigator.onLine) {
+                fetch(url).then(res => res.blob()).then(blobRes => {
+                    saveTileToDB(url, blobRes);
+                    tile.src = URL.createObjectURL(blobRes);
+                    updateOfflineTilesCountDisplay();
+                }).catch(() => { tile.src = url; });
             } else {
-                if (navigator.onLine) {
-                    fetch(url).then(res => res.blob()).then(blobRes => {
-                        saveTileToDB(url, blobRes);
-                        tile.src = URL.createObjectURL(blobRes);
-                        updateOfflineTilesCountDisplay();
-                    }).catch(() => {
-                        tile.src = url;
-                    });
-                } else {
-                    tile.src = url;
-                }
+                tile.src = url;
             }
         });
         return tile;
@@ -346,55 +301,44 @@ function openOfflineDownloadModal() {
 async function startDownloadingRouteMapTiles() {
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
     if (!activeRoute || activeRoute.stops.length === 0) {
-        alert("No hay paradas en la ruta activa para calcular el área del mapa.");
+        alert("No hay paradas en la ruta activa.");
         return;
     }
-
     const progContainer = document.getElementById('download-progress-container');
     const progressBar = document.getElementById('download-progress-bar');
     const syncStatus = document.getElementById('offline-sync-status');
     progContainer.classList.remove('hidden');
-    syncStatus.innerText = "Calculando área y descargando...";
+    syncStatus.innerText = "Descargando tiles...";
 
     let lats = activeRoute.stops.map(s => s.lat);
     let lngs = activeRoute.stops.map(s => s.lng);
-    let minLat = Math.min(...lats) - 0.02;
-    let maxLat = Math.max(...lats) + 0.02;
-    let minLng = Math.min(...lngs) - 0.02;
-    let maxLng = Math.max(...lngs) + 0.02;
+    let minLat = Math.min(...lats) - 0.02, maxLat = Math.max(...lats) + 0.02;
+    let minLng = Math.min(...lngs) - 0.02, maxLng = Math.max(...lngs) + 0.02;
 
-    let zooms = [13, 14, 15];
     let tilesToDownload = [];
-
-    zooms.forEach(z => {
+    [13, 14, 15].forEach(z => {
         let p1 = latLngToTileCoord(minLat, minLng, z);
         let p2 = latLngToTileCoord(maxLat, maxLng, z);
         for (let x = Math.min(p1.x, p2.x); x <= Math.max(p1.x, p2.x); x++) {
             for (let y = Math.min(p1.y, p2.y); y <= Math.max(p1.y, p2.y); y++) {
-                let url = `https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`;
-                tilesToDownload.push(url);
+                tilesToDownload.push(`https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`);
             }
         }
     });
 
-    let total = tilesToDownload.length;
-    let downloaded = 0;
-
+    let total = tilesToDownload.length, downloaded = 0;
     for (let url of tilesToDownload) {
         try {
             let res = await fetch(url);
             let blob = await res.blob();
             saveTileToDB(url, blob);
-            saveTileToDB(url.replace('//a.', '//b.'), blob);
-            saveTileToDB(url.replace('//a.', '//c.'), blob);
         } catch(e) {}
         downloaded++;
         let pct = Math.round((downloaded / total) * 100);
         progressBar.style.width = pct + '%';
-        syncStatus.innerText = `Descargados ${downloaded} / ${total} tiles (${pct}%)`;
+        syncStatus.innerText = `Descargados ${downloaded} / ${total} (${pct}%)`;
     }
-
-    syncStatus.innerText = "¡Mapa guardado en el dispositivo!";
+    syncStatus.innerText = "¡Mapa guardado offline!";
     updateOfflineTilesCountDisplay();
     setTimeout(() => progContainer.classList.add('hidden'), 3000);
 }
@@ -406,48 +350,26 @@ function latLngToTileCoord(lat, lng, zoom) {
 }
 
 async function clearOfflineMapStorage() {
-    if (!confirm("¿Deseas borrar todos los tiles del mapa almacenados localmente?")) return;
+    if (!confirm("¿Borrar mosaicos offline?")) return;
     if (!db) return;
     try {
         const tx = db.transaction('tiles', 'readwrite');
         tx.objectStore('tiles').clear();
-        tx.oncomplete = () => {
-            updateOfflineTilesCountDisplay();
-            alert("Almacenamiento offline de mapa borrado.");
-        };
-    } catch(e) { alert("Error al borrar"); }
+        tx.oncomplete = () => { updateOfflineTilesCountDisplay(); alert("Borrado con éxito."); };
+    } catch(e) {}
 }
 
 function startLiveGPSWatcher() {
     if (!navigator.geolocation) return;
     state.gpsWatchId = navigator.geolocation.watchPosition(pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
         const speedMps = pos.coords.speed;
-        const now = Date.now();
-        let calculatedSpeed = 0;
-
-        if (speedMps !== null && speedMps >= 0) {
-            calculatedSpeed = speedMps * 3.6;
-        } else if (state.lastPosition && state.lastTimestamp) {
-            const R = 6371;
-            const dLat = (lat - state.lastPosition.lat) * Math.PI / 180;
-            const dLon = (lng - state.lastPosition.lng) * Math.PI / 180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(state.lastPosition.lat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) * Math.sin(dLon/2)**2;
-            const distKm = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-            const hours = (now - state.lastTimestamp) / 3600000;
-            if (hours > 0) calculatedSpeed = distKm / hours;
-        }
-
-        state.lastPosition = { lat, lng };
-        state.lastTimestamp = now;
-        state.currentSpeedKmH = calculatedSpeed;
-        updateLiveGPSMarker(lat, lng, calculatedSpeed);
-
+        let speed = (speedMps !== null && speedMps >= 0) ? speedMps * 3.6 : 0;
+        updateLiveGPSMarker(lat, lng, speed);
         if (state.isLiveTracking && state.map && state.currentTab === 'map') {
             state.map.setView([lat, lng], state.map.getZoom());
         }
-    }, err => console.warn("GPS error:", err.message), { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
+    }, () => {}, { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 });
 }
 
 function updateLiveGPSMarker(lat, lng, speed) {
@@ -488,7 +410,7 @@ function toggleTrackingLive() {
 
 function centrarGPS() {
     if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => state.map.setView([pos.coords.latitude, pos.coords.longitude], 16), () => alert("GPS no disponible"));
+        navigator.geolocation.getCurrentPosition(pos => state.map.setView([pos.coords.latitude, pos.coords.longitude], 16), () => {});
     }
 }
 
@@ -499,8 +421,7 @@ async function searchMapAddress() {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`);
         const data = await res.json();
         if (data && data.length > 0) state.map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 16);
-        else alert("No encontrado");
-    } catch(e) { alert("Sin conexión para búsqueda online"); }
+    } catch(e) {}
 }
 
 function toggleStopMenu() { document.getElementById('stop-submenu').classList.toggle('hidden'); }
@@ -512,6 +433,7 @@ function abrirModalParadaCentro() {
     document.getElementById('parada-valor').value = "150000";
     document.getElementById('modal-parada').classList.remove('hidden');
 }
+
 function guardarNuevaParada() {
     const name = document.getElementById('parada-nombre').value;
     const address = document.getElementById('parada-direccion').value;
@@ -519,7 +441,7 @@ function guardarNuevaParada() {
     if (!name) { alert("Ingrese nombre"); return; }
     const center = state.map.getCenter();
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
-    activeRoute.stops.push({ id: 'stop-' + Date.now(), name, address: address || 'Mapa', lat: center.lat, lng: center.lng, status: 'pending', value, paymentMethod: 'cash', evidencePhoto: null, evidenceNotes: '' });
+    activeRoute.stops.push({ id: 'stop-' + Date.now(), name, address: address || 'Mapa', lat: center.lat, lng: center.lng, status: 'pending', value, paymentMethod: 'cash', evidenceNotes: '' });
     saveStateToStorage();
     document.getElementById('modal-parada').classList.add('hidden');
     renderAll();
@@ -527,13 +449,15 @@ function guardarNuevaParada() {
 
 function abrirModalClienteExistente() {
     document.getElementById('stop-submenu').classList.add('hidden');
-    if (state.agenda.length === 0) { alert("No hay clientes en la agenda"); switchTab('agenda'); return; }
-    const clientName = prompt("Seleccione cliente:\n" + state.agenda.map(c => "- " + c.name).join('\n'));
+    if (state.agenda.length === 0) { alert("Agenda vacía"); switchTab('agenda'); return; }
+    const clientName = prompt("Cliente a añadir:
+" + state.agenda.map(c => "- " + c.name).join('
+'));
     if (!clientName) return;
     const client = state.agenda.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()));
-    if (!client) { alert("Cliente no encontrado"); return; }
+    if (!client) { alert("No encontrado"); return; }
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
-    activeRoute.stops.push({ id: 'stop-' + Date.now(), name: client.name, address: client.address, lat: 4.6097 + (Math.random()-0.5)*0.02, lng: -74.0817 + (Math.random()-0.5)*0.02, status: 'pending', value: 200000, paymentMethod: 'cash', evidencePhoto: null, evidenceNotes: '' });
+    activeRoute.stops.push({ id: 'stop-' + Date.now(), name: client.name, address: client.address, lat: 4.6097 + (Math.random()-0.5)*0.02, lng: -74.0817 + (Math.random()-0.5)*0.02, status: 'pending', value: 200000 });
     saveStateToStorage();
     renderAll();
 }
@@ -545,7 +469,7 @@ function changeTransportMode(mode) {
 
 function optimizarRutaInteligente() {
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
-    if (!activeRoute || activeRoute.stops.length <= 1) { alert("Se requieren al menos 2 paradas"); return; }
+    if (!activeRoute || activeRoute.stops.length <= 1) { alert("Se necesitan al menos 2 paradas"); return; }
     let pending = activeRoute.stops.filter(s => s.status === 'pending');
     let completed = activeRoute.stops.filter(s => s.status !== 'pending');
     if (pending.length <= 1) { alert("No hay suficientes paradas pendientes"); return; }
@@ -562,7 +486,7 @@ function optimizarRutaInteligente() {
     activeRoute.stops = [...optimized, ...completed];
     saveStateToStorage();
     renderAll();
-    alert("Ruta optimizada");
+    alert("¡Ruta optimizada por IA!");
 }
 
 function renderAll() {
@@ -640,29 +564,13 @@ function openEvidenceModal(stopId) {
     document.getElementById('modal-evidence').classList.remove('hidden');
 }
 
-function toggleEvidenceFields() {}
-function handleEvidencePhotoSelect(e) {
-    const file = e.target.files[0];
-    if (!file) {
-        document.getElementById('evidence-photo-base64').value = '';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = evt => {
-        document.getElementById('evidence-photo-base64').value = evt.target.result;
-        document.getElementById('evidence-preview-img').src = evt.target.result;
-        document.getElementById('evidence-preview-container').classList.remove('hidden');
-    };
-    reader.readAsDataURL(file);
-}
 function saveEvidence() {
     const stopId = document.getElementById('evidence-stop-id').value;
     const status = document.getElementById('evidence-status').value;
     const notes = document.getElementById('evidence-notes').value;
-    const photo = document.getElementById('evidence-photo-base64').value;
     for (let r of state.routes) {
         let stop = r.stops.find(s => s.id === stopId);
-        if (stop) { stop.status = status; stop.evidenceNotes = notes; stop.evidencePhoto = photo; break; }
+        if (stop) { stop.status = status; stop.evidenceNotes = notes; break; }
     }
     saveStateToStorage();
     document.getElementById('modal-evidence').classList.add('hidden');
@@ -677,21 +585,20 @@ function renderAgendaList() {
         </div>
     `).join('');
 }
+
 function openClientModal() { document.getElementById('modal-client').classList.remove('hidden'); }
 function handleClientSubmitDirect() {
     const name = document.getElementById('client-name').value.trim();
     const address = document.getElementById('client-address').value.trim();
     const phone = document.getElementById('client-phone').value.trim();
     const obs = document.getElementById('client-obs').value.trim();
-    if (!name || !address) {
-        alert("Ingrese nombre y dirección del cliente");
-        return;
-    }
+    if (!name || !address) { alert("Ingrese nombre y dirección"); return; }
     state.agenda.push({ id: 'c-' + Date.now(), name, address, phone, obs });
     saveStateToStorage();
     document.getElementById('modal-client').classList.add('hidden');
     renderAll();
 }
+
 function addClientToActiveRoute(id) {
     let c = state.agenda.find(x => x.id === id);
     if (!c) return;
@@ -706,6 +613,7 @@ function setPaymentMode(mode) {
     saveStateToStorage();
     renderFinances();
 }
+
 function initDenominationsUI() {
     const denoms = [{k:'100000',l:'$100.000'},{k:'50000',l:'$50.000'},{k:'20000',l:'$20.000'},{k:'10000',l:'$10.000'},{k:'5000',l:'$5.000'},{k:'2000',l:'$2.000'},{k:'1000',l:'$1.000'},{k:'coins',l:'Monedas'}];
     document.getElementById('denominations-container').innerHTML = denoms.map(d => `
@@ -719,18 +627,21 @@ function initDenominationsUI() {
         </div>
     `).join('');
 }
+
 function updateDenom(k, delta) {
     state.cashDenominations[k] = Math.max(0, (state.cashDenominations[k] || 0) + delta);
     document.getElementById(`denom-count-${k}`).innerText = state.cashDenominations[k];
     saveStateToStorage();
     renderFinances();
 }
+
 function resetCashCounter() {
     Object.keys(state.cashDenominations).forEach(k => state.cashDenominations[k] = 0);
     initDenominationsUI();
     saveStateToStorage();
     renderFinances();
 }
+
 function addExpense() {
     let concept = document.getElementById('expense-concept').value;
     let amount = parseFloat(document.getElementById('expense-amount').value);
@@ -740,11 +651,13 @@ function addExpense() {
     renderExpenses();
     renderFinances();
 }
+
 function renderExpenses() {
     document.getElementById('expenses-list').innerHTML = state.expenses.map(e => `
         <div class="flex justify-between bg-neutral-950 p-2 rounded-xl text-xs"><span>${e.concept}</span><span class="text-rose-400">-$${e.amount.toLocaleString()}</span></div>
     `).join('');
 }
+
 function renderFinances() {
     let cash = Object.keys(state.cashDenominations).reduce((acc, k) => acc + (state.cashDenominations[k] || 0) * (k === 'coins' ? 500 : parseInt(k)), 0);
     document.getElementById('counter-total-display').innerText = '$' + cash.toLocaleString();
@@ -760,7 +673,7 @@ function renderFinances() {
     document.getElementById('final-balance-badge').innerText = '$' + neto.toLocaleString() + ' Neto';
 }
 
-function openCreateRouteModal() { document.getElementById('modal-route').classList.remove('hidden'); }
+function openCreateRouteModal() { document.getElementById('modal-route').classList.add('flex'); document.getElementById('modal-route').classList.remove('hidden'); }
 function createNewRoute() {
     let name = document.getElementById('new-route-name').value;
     if (!name) return;
@@ -768,16 +681,4 @@ function createNewRoute() {
     saveStateToStorage();
     document.getElementById('modal-route').classList.add('hidden');
     renderAll();
-}
-function importarArchivoRoutin(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-        try {
-            let data = JSON.parse(evt.target.result);
-            if (data.routes) { state = { ...state, ...data }; saveStateToStorage(); renderAll(); alert("Importado con éxito"); }
-        } catch(err) { alert("Archivo inválido"); }
-    };
-    reader.readAsText(file);
 }

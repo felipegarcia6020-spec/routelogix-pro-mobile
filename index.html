@@ -7,7 +7,6 @@
     
     <meta name="theme-color" content="#09090b">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="./manifest.json">
 
     <!-- Tailwind CSS -->
@@ -40,11 +39,11 @@
             <div id="form-login" class="space-y-3 text-xs">
                 <div>
                     <label class="block text-neutral-400 mb-1">Correo Electrónico</label>
-                    <input type="email" id="login-email" placeholder="conductor@routelogix.com" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-blue-500 focus:outline-none">
+                    <input type="email" id="login-email" value="conductor@routelogix.com" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-blue-500 focus:outline-none">
                 </div>
                 <div>
                     <label class="block text-neutral-400 mb-1">Contraseña</label>
-                    <input type="password" id="login-pass" placeholder="••••••••" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-blue-500 focus:outline-none">
+                    <input type="password" id="login-pass" value="123456" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-blue-500 focus:outline-none">
                 </div>
                 <button type="button" onclick="handleLoginDirect()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg transition active:scale-95">Ingresar al Sistema</button>
             </div>
@@ -249,21 +248,13 @@
 
             <div class="text-xs font-semibold text-neutral-400 uppercase tracking-wider pt-2">Listado de Rutas Creadas</div>
             <div id="routes-list-container" class="space-y-2.5"></div>
-
-            <div id="route-stops-container" class="space-y-2.5 pt-2 hidden">
-                <div class="flex justify-between items-center">
-                    <h3 id="stops-route-header-title" class="text-xs font-semibold text-blue-400 uppercase tracking-wider">Paradas y Reordenamiento</h3>
-                    <button onclick="backToRoutesList()" class="text-xs text-neutral-400 hover:text-white"><i data-lucide="arrow-left" class="w-3.5 h-3.5 inline"></i> Volver</button>
-                </div>
-                <div id="lista-paradas-ruta" class="space-y-2.5"></div>
-            </div>
         </section>
 
         <!-- PESTAÑA AGENDA -->
         <section id="view-agenda" class="p-4 space-y-4 hidden flex-1 bg-neutral-950">
             <div class="flex justify-between items-center">
                 <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Agenda de Clientes</h2>
-                <button onclick="openClientModal('new')" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center space-x-1 shadow">
+                <button onclick="openClientModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center space-x-1 shadow">
                     <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
                     <span>Nuevo Cliente</span>
                 </button>
@@ -360,7 +351,7 @@
         </div>
     </nav>
 
-    <!-- MODAL DESCARGA DE MAPA OFFLINE (INDEXEDDB STORAGE) -->
+    <!-- MODALES -->
     <div id="modal-offline-download" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-2xl text-xs">
             <div class="flex items-center space-x-3">
@@ -372,7 +363,6 @@
                     <p class="text-[11px] text-neutral-400">Guarda los mosaicos del mapa directamente en el dispositivo.</p>
                 </div>
             </div>
-
             <div class="bg-neutral-950 p-3 rounded-xl border border-neutral-800 space-y-2">
                 <div class="flex justify-between">
                     <span class="text-neutral-400">Tiles en Memoria Local:</span>
@@ -386,7 +376,6 @@
                     <div id="download-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
                 </div>
             </div>
-
             <div class="space-y-2">
                 <button onclick="startDownloadingRouteMapTiles()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow transition flex items-center justify-center gap-2">
                     <i data-lucide="download" class="w-4 h-4"></i> Descargar Mapa de la Ruta Activa
@@ -395,25 +384,18 @@
                     Borrar Mosaicos Almacenados
                 </button>
             </div>
-
             <div class="flex justify-end pt-1">
                 <button onclick="document.getElementById('modal-offline-download').classList.add('hidden')" class="text-neutral-400 hover:text-white font-semibold">Cerrar</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL EDITAR PERFIL CONDUCTOR -->
     <div id="modal-driver" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
             <h3 class="font-bold text-sm text-blue-400">Editar Perfil del Conductor</h3>
             <div class="space-y-2">
                 <label class="block text-neutral-400">Nombre del Conductor</label>
                 <input type="text" id="edit-driver-name" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
-            </div>
-            <div class="space-y-2">
-                <label class="block text-neutral-400">Foto <span class="text-neutral-500 font-normal">(Opcional)</span></label>
-                <input type="file" id="edit-driver-photo-file" accept="image/*" onchange="handleEditDriverPhotoSelect(event)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-white text-xs">
-                <input type="hidden" id="edit-driver-photo-base64">
             </div>
             <div class="flex gap-2 pt-2">
                 <button onclick="saveDriverProfile()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Guardar Cambios</button>
@@ -422,7 +404,6 @@
         </div>
     </div>
 
-    <!-- MODAL NUEVA / EDITAR PARADA -->
     <div id="modal-parada" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
             <h3 class="font-bold text-sm text-blue-400" id="modal-parada-title">Añadir Parada</h3>
@@ -438,42 +419,28 @@
         </div>
     </div>
 
-    <!-- MODAL EVIDENCIA Y PAGO -->
     <div id="modal-evidence" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
-            <h3 class="font-bold text-sm text-blue-400" id="evidence-modal-title">Gestión de Entrega y Evidencia</h3>
+            <h3 class="font-bold text-sm text-blue-400">Gestión de Entrega y Evidencia</h3>
             <input type="hidden" id="evidence-stop-id">
-            
             <div class="space-y-2">
                 <label class="block text-neutral-400">Estado del Pedido</label>
-                <select id="evidence-status" onchange="toggleEvidenceFields()" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white font-semibold">
+                <select id="evidence-status" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white font-semibold">
                     <option value="delivered">✅ Entregado</option>
                     <option value="rejected">❌ Rechazado</option>
                 </select>
             </div>
-
-            <div id="container-payment-method" class="space-y-2">
+            <div class="space-y-2">
                 <label class="block text-neutral-400">Método de Pago</label>
                 <select id="evidence-payment-method" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                     <option value="cash">💵 Efectivo (Suma a Caja Física)</option>
                     <option value="transfer">💳 Transferencia</option>
                 </select>
             </div>
-
             <div class="space-y-2">
-                <label class="block text-neutral-400">Foto de Evidencia <span class="text-neutral-500 font-normal">(Opcional)</span></label>
-                <input type="file" id="evidence-photo-file" accept="image/*" capture="environment" onchange="handleEvidencePhotoSelect(event)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-white text-xs">
-                <input type="hidden" id="evidence-photo-base64">
-                <div id="evidence-preview-container" class="hidden mt-1 w-20 h-20 rounded-xl overflow-hidden border border-neutral-700">
-                    <img id="evidence-preview-img" class="w-full h-full object-cover">
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label class="block text-neutral-400" id="evidence-notes-label">Observaciones</label>
+                <label class="block text-neutral-400">Observaciones</label>
                 <textarea id="evidence-notes" rows="2" placeholder="Local cerrado..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white"></textarea>
             </div>
-
             <div class="flex gap-2 pt-2">
                 <button onclick="saveEvidence()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Guardar</button>
                 <button onclick="document.getElementById('modal-evidence').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-2.5 rounded-xl font-bold">Cancelar</button>
@@ -481,12 +448,10 @@
         </div>
     </div>
 
-    <!-- MODAL CLIENTE AGENDA -->
     <div id="modal-client" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
-            <h3 class="font-bold text-sm text-blue-400" id="modal-client-title">Nuevo Cliente</h3>
+            <h3 class="font-bold text-sm text-blue-400">Nuevo Cliente</h3>
             <div class="space-y-2.5">
-                <input type="hidden" id="client-edit-id">
                 <input type="text" id="client-name" placeholder="Tienda Don José" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                 <input type="text" id="client-address" placeholder="Calle 45 # 12-30" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                 <input type="text" id="client-phone" placeholder="3102345678" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
@@ -499,7 +464,6 @@
         </div>
     </div>
 
-    <!-- MODAL NUEVA RUTA -->
     <div id="modal-route" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
             <h3 class="font-bold text-sm text-blue-400">Crear Nueva Ruta TaT</h3>
