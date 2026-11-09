@@ -1,12 +1,10 @@
-const CACHE_NAME = 'routelogix-pro-v20';
+const CACHE_NAME = 'routelogix-pro-v22';
 const coreAssets = [
   './',
   './index.html',
   './app.js',
   './style.css',
-  './manifest.json',
-  './launchericon-192x192.png',
-  './launchericon-512x512.png'
+  './manifest.json'
 ];
 
 self.addEventListener('install', event => {
@@ -35,13 +33,11 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(cachedResponse => {
       if (cachedResponse) return cachedResponse;
       return fetch(event.request).then(networkResponse => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && !event.request.url.includes('openstreetmap.org')) {
+        if (!networkResponse || networkResponse.status !== 200 || (networkResponse.type !== 'basic' && !event.request.url.includes('openstreetmap.org'))) {
           return networkResponse;
         }
         const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseToCache);
-        });
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache));
         return networkResponse;
       }).catch(() => {
         if (event.request.mode === 'navigate') {
