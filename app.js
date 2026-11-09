@@ -139,14 +139,14 @@ function updateNetworkStatus() {
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v9');
+    const saved = localStorage.getItem('routelogix_tat_state_v10');
     if (saved) {
         try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {}
     }
 }
 
 function saveStateToStorage() {
-    localStorage.setItem('routelogix_tat_state_v9', JSON.stringify(state));
+    localStorage.setItem('routelogix_tat_state_v10', JSON.stringify(state));
 }
 
 function initAuthScreen() {
@@ -490,9 +490,7 @@ function abrirModalClienteExistente() {
     const submenu = document.getElementById('stop-submenu');
     if (submenu) submenu.classList.add('hidden');
     if (state.agenda.length === 0) { alert("Agenda vacía"); switchTab('agenda'); return; }
-    const clientName = prompt("Cliente a añadir:
-" + state.agenda.map(c => "- " + c.name).join('
-'));
+    const clientName = prompt("Cliente a añadir:\n" + state.agenda.map(c => "- " + c.name).join('\n'));
     if (!clientName) return;
     const client = state.agenda.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()));
     if (!client) { alert("No encontrado"); return; }
