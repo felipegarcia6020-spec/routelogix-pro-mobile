@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RouteLogix Pro | Enterprise v24</title>
+    <title>RouteLogix Pro | Enterprise v25</title>
     
     <meta name="theme-color" content="#030712">
     <meta name="mobile-web-app-capable" content="yes">
@@ -17,13 +17,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <style>
-        body { font-family: system-ui, -apple-system, sans-serif; }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: #030712; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
-    </style>
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body class="h-full text-gray-100 bg-neutral-950 flex flex-col justify-between selection:bg-cyan-500 selection:text-black overflow-hidden font-sans">
 
@@ -33,7 +28,7 @@
             <div class="text-center space-y-2">
                 <div class="w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 rounded-2xl flex items-center justify-center mx-auto mb-2 font-black text-2xl shadow-lg shadow-cyan-500/30">RL</div>
                 <h1 class="text-2xl font-black text-white tracking-wider bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">ROUTELOGIX PRO</h1>
-                <p class="text-xs text-neutral-400 font-medium">Enterprise Edition - v24</p>
+                <p class="text-xs text-neutral-400 font-medium">Enterprise Edition - v25</p>
             </div>
 
             <div class="flex bg-neutral-950/80 p-1.5 rounded-2xl border border-neutral-800 text-xs font-bold">
@@ -305,7 +300,7 @@
                         <strong id="summary-fisico" class="text-cyan-400 text-sm font-black">$0</strong>
                     </div>
                     <div class="bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
-                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">3. Transferencias</span>
+                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">3. Transferencias / QR</span>
                         <strong id="summary-transfer" class="text-teal-400 text-sm font-black">$0</strong>
                     </div>
                     <div class="bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
@@ -430,10 +425,10 @@
         </div>
     </div>
 
-    <!-- MODAL EVIDENCE & SIGNATURE -->
+    <!-- MODAL EVIDENCE & SIGNATURE & QR PAYMENT -->
     <div id="modal-evidence" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-md rounded-3xl p-6 space-y-3.5 shadow-2xl text-xs max-h-[90vh] overflow-y-auto">
-            <h3 class="font-black text-sm text-cyan-400">Gestión de Entrega, Foto & Firma</h3>
+        <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-md rounded-3xl p-6 space-y-3.5 shadow-2xl text-xs max-h-[95vh] overflow-y-auto">
+            <h3 class="font-black text-sm text-cyan-400">Gestión de Entrega, Pago, Foto & Firma</h3>
             <input type="hidden" id="evidence-stop-id">
             
             <div class="space-y-1.5">
@@ -446,10 +441,42 @@
 
             <div class="space-y-1.5">
                 <label class="block text-neutral-400 font-medium">Método de Pago</label>
-                <select id="evidence-payment-method" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-bold focus:outline-none">
+                <select id="evidence-payment-method" onchange="togglePaymentDetails(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-bold focus:outline-none">
                     <option value="cash">💵 Efectivo (Suma a Caja Física)</option>
-                    <option value="transfer">💳 Transferencia Bancaria</option>
+                    <option value="transfer">💳 Transferencia / Cuenta Bancaria</option>
+                    <option value="qr">📷 Código QR (Nequi / DaviPlata / Bancolombia)</option>
                 </select>
+            </div>
+
+            <!-- BLOQUE DINÁMICO PARA QR / CUENTA BANCARIA / LLAVES -->
+            <div id="payment-details-box" class="bg-neutral-950 border border-cyan-500/30 rounded-2xl p-3.5 space-y-3 hidden">
+                <div class="flex justify-between items-center">
+                    <span id="payment-box-title" class="text-cyan-400 font-black text-[11px] uppercase">Datos de Pago</span>
+                    <button type="button" onclick="openPaymentConfigModal()" class="text-[10px] text-cyan-300 underline font-bold">Configurar mis datos</button>
+                </div>
+                
+                <!-- Vista QR -->
+                <div id="payment-qr-container" class="text-center space-y-2 hidden">
+                    <div class="bg-white p-3 rounded-xl inline-block shadow-inner mx-auto">
+                        <img id="render-qr-img" src="" alt="QR de Pago" class="w-32 h-32 object-contain mx-auto hidden">
+                        <div id="render-qr-placeholder" class="w-32 h-32 bg-neutral-200 text-neutral-800 flex items-center justify-center text-[10px] font-bold p-2 text-center rounded">
+                            Sin QR configurado. Sube una imagen en configuración.
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-neutral-400">Escanee el código QR con la app del banco para completar la transferencia.</p>
+                </div>
+
+                <!-- Vista Cuenta / Llaves (Nequi, Daviplata, etc.) -->
+                <div id="payment-account-container" class="space-y-1.5 text-xs">
+                    <div class="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800 flex justify-between items-center">
+                        <span class="text-neutral-400 font-medium" id="lbl-bank-name">Banco / Entidad:</span>
+                        <strong class="text-white" id="val-bank-name">Nequi / DaviPlata</strong>
+                    </div>
+                    <div class="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800 flex justify-between items-center">
+                        <span class="text-neutral-400 font-medium" id="lbl-bank-account">N° Cuenta / Llave:</span>
+                        <strong class="text-cyan-400 font-mono font-bold" id="val-bank-account">3100000000</strong>
+                    </div>
+                </div>
             </div>
 
             <div class="space-y-1.5">
@@ -474,13 +501,42 @@
                     <button type="button" onclick="clearSignatureCanvas()" class="text-rose-400 hover:text-rose-300 text-[10px] font-bold">Limpiar Firma</button>
                 </div>
                 <div class="bg-neutral-950 border border-neutral-800 rounded-2xl overflow-hidden touch-none">
-                    <canvas id="signature-canvas" width="340" height="120" class="w-full cursor-crosshair bg-neutral-950"></canvas>
+                    <canvas id="signature-canvas" width="340" height="110" class="w-full cursor-crosshair bg-neutral-950"></canvas>
                 </div>
             </div>
 
             <div class="flex gap-2.5 pt-2">
                 <button onclick="saveEvidence()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Guardar Entrega</button>
                 <button onclick="document.getElementById('modal-evidence').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold transition">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIGURACION DE PAGOS (QR y CUENTAS) -->
+    <div id="modal-payment-config" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-black text-sm text-cyan-400">Configurar QR y Cuenta Bancaria</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-neutral-400 font-medium mb-1">Nombre del Banco / Entidad / Llave</label>
+                    <input type="text" id="cfg-bank-name" placeholder="Ej. Nequi / Bancolombia" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-neutral-400 font-medium mb-1">Número de Cuenta / Teléfono (Llave)</label>
+                    <input type="text" id="cfg-bank-account" placeholder="Ej. 310 123 4567 o Cta Ahorros 000-000" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-neutral-400 font-medium mb-1">Imagen de Código QR (Nequi / Daviplata / Banco)</label>
+                    <input type="file" id="cfg-qr-file-input" accept="image/*" class="hidden" onchange="previewConfigQR(event)">
+                    <button type="button" onclick="document.getElementById('cfg-qr-file-input').click()" class="w-full bg-neutral-800 hover:bg-neutral-700 text-cyan-400 font-bold py-3 rounded-xl border border-neutral-700 transition flex items-center justify-center gap-2">
+                        <i data-lucide="upload" class="w-4 h-4"></i> Subir Imagen QR
+                    </button>
+                    <div id="cfg-qr-preview-text" class="text-center text-[10px] text-neutral-400 mt-1">Ninguna imagen QR cargada</div>
+                </div>
+                <div class="flex gap-2.5 pt-2">
+                    <button onclick="savePaymentConfig()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Guardar Configuración</button>
+                    <button onclick="document.getElementById('modal-payment-config').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold transition">Cerrar</button>
+                </div>
             </div>
         </div>
     </div>
@@ -534,38 +590,7 @@
         </div>
     </div>
 
-    <!-- SCRIPT LOGIC -->
-    <script>
-        let deferredPrompt = null;
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            const installBtn = document.getElementById('pwa-install-btn');
-            if (installBtn) installBtn.classList.remove('hidden');
-        });
-
-        function triggerPWAInstall() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        const installBtn = document.getElementById('pwa-install-btn');
-                        if (installBtn) installBtn.classList.add('hidden');
-                    }
-                    deferredPrompt = null;
-                });
-            } else {
-                alert("Para instalar esta aplicación:\n\n• En Google Chrome (PC/Android): Haz clic en el menú (tres puntos) superior derecho y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.\n• En Safari (iOS): Toca el botón Compartir y selecciona 'Añadir a inicio'.");
-            }
-        }
-
-        let state = {
-            user: null,
-            transportMode: 'car',
-            currentTab: 'map',
-            mapTileStyle: 'standard',
-            paymentMode: 'cash',
-            expandedRouteIds: {},
-            expandedStopIds: {},
-            routes:
+    <!-- SCRIPT LINK -->
+    <script src="./app.js"></script>
+</body>
+</html>
