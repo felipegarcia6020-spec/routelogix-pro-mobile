@@ -1,1 +1,20 @@
-{"name":"RouteLogix Pro Next-Gen","short_name":"RouteLogix","start_url":"./index.html","display":"standalone","background_color":"#030712","theme_color":"#06b6d4"}
+{
+  "name": "RouteLogix Pro Next-Gen",
+  "short_name": "RouteLogix",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "./launchericon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./launchericon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

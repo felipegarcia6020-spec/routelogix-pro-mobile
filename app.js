@@ -1,3 +1,30 @@
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) installBtn.classList.remove('hidden');
+});
+
+function triggerPWAInstall() {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                const installBtn = document.getElementById('pwa-install-btn');
+                if (installBtn) installBtn.classList.add('hidden');
+            }
+            deferredPrompt = null;
+        });
+    } else {
+        alert("Para instalar esta aplicación:
+
+• En Google Chrome (PC/Android): Haz clic en el menú (tres puntos ⠇) superior derecho y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.
+• En Safari (iOS): Toca el botón Compartir ⎋ y selecciona 'Añadir a inicio'.");
+    }
+}
+
 let state = {
     user: null,
     transportMode: 'car',
@@ -22,7 +49,11 @@ let state = {
         { id: 'c2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', phone: '3209876543', obs: 'Pide factura electrónica' }
     ],
     expenses: [],
-    cashDenominations: { '100000': 0, '50000': 0, '20000': 0, '10000': 0, '5000': 0, '2000': 0, '1000': 0, 'coins': 0 },
+    cashDenominations: { 
+        '100000': 0, '50000': 0, '20000': 0, '10000': 0, 
+        '5000': 0, '2000': 0, '1000': 0, 
+        'coin_1000': 0, 'coin_500': 0, 'coin_200': 0, 'coin_100': 0, 'coin_50': 0 
+    },
     map: null,
     markerList: [],
     polylineLayer: null,
@@ -44,7 +75,7 @@ let db = null;
 function initIndexedDB() {
     return new Promise((resolve) => {
         try {
-            const request = indexedDB.open('RouteLogixOfflineMapsDB_v14', 1);
+            const request = indexedDB.open('RouteLogixOfflineMapsDB_v15', 1);
             request.onerror = () => resolve(null);
             request.onsuccess = () => {
                 db = request.result;
@@ -136,7 +167,7 @@ function updateNetworkStatus() {
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v14');
+    const saved = localStorage.getItem('routelogix_tat_state_v15');
     if (saved) {
         try { 
             const parsed = JSON.parse(saved);
@@ -158,7 +189,7 @@ function saveStateToStorage() {
         cashDenominations: state.cashDenominations,
         isLiveTracking: state.isLiveTracking
     };
-    localStorage.setItem('routelogix_tat_state_v14', JSON.stringify(persistData));
+    localStorage.setItem('routelogix_tat_state_v15', JSON.stringify(persistData));
 }
 
 function initAuthScreen() {
@@ -499,7 +530,9 @@ function abrirModalClienteExistente() {
     const submenu = document.getElementById('stop-submenu');
     if (submenu) submenu.classList.add('hidden');
     if (state.agenda.length === 0) { alert("Agenda vacía"); switchTab('agenda'); return; }
-    const clientName = prompt("Cliente a añadir:\n" + state.agenda.map(c => "- " + c.name).join('\n'));
+    const clientName = prompt("Cliente a añadir:
+" + state.agenda.map(c => "- " + c.name).join('
+'));
     if (!clientName) return;
     const client = state.agenda.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()));
     if (!client) { alert("No encontrado"); return; }
@@ -701,7 +734,20 @@ function setPaymentMode(mode) {
 function initDenominationsUI() {
     const container = document.getElementById('denominations-container');
     if (!container) return;
-    const denoms = [{k:'100000',l:'$100.000'},{k:'50000',l:'$50.000'},{k:'20000',l:'$20.000'},{k:'10000',l:'$10.000'},{k:'5000',l:'$5.000'},{k:'2000',l:'$2.000'},{k:'1000',l:'$1.000'},{k:'coins',l:'Monedas'}];
+    const denoms = [
+        {k:'100000',l:'$100.000 (Billete)'},
+        {k:'50000',l:'$50.000 (Billete)'},
+        {k:'20000',l:'$20.000 (Billete)'},
+        {k:'10000',l:'$10.000 (Billete)'},
+        {k:'5000',l:'$5.000 (Billete)'},
+        {k:'2000',l:'$2.000 (Billete)'},
+        {k:'1000',l:'$1.000 (Billete)'},
+        {k:'coin_1000',l:'$1.000 (Moneda)'},
+        {k:'coin_500',l:'$500 (Moneda)'},
+        {k:'coin_200',l:'$200 (Moneda)'},
+        {k:'coin_100',l:'$100 (Moneda)'},
+        {k:'coin_50',l:'$50 (Moneda)'}
+    ];
     container.innerHTML = denoms.map(d => `
         <div class="flex justify-between items-center bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800 text-xs">
             <span class="text-neutral-300 font-bold">${d.l}</span>
@@ -753,7 +799,16 @@ function renderExpenses() {
 }
 
 function renderFinances() {
-    let cash = Object.keys(state.cashDenominations).reduce((acc, k) => acc + (state.cashDenominations[k] || 0) * (k === 'coins' ? 500 : parseInt(k)), 0);
+    let cash = 0;
+    const valuesMap = {
+        '100000': 100000, '50000': 50000, '20000': 20000, '10000': 10000,
+        '5000': 5000, '2000': 2000, '1000': 1000,
+        'coin_1000': 1000, 'coin_500': 500, 'coin_200': 200, 'coin_100': 100, 'coin_50': 50
+    };
+    
+    Object.keys(state.cashDenominations).forEach(k => {
+        cash += (state.cashDenominations[k] || 0) * (valuesMap[k] || 0);
+    });
     
     let counterDisplay = document.getElementById('counter-total-display');
     if (counterDisplay) counterDisplay.innerText = '$' + cash.toLocaleString();
