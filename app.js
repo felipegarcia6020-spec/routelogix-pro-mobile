@@ -47,20 +47,22 @@ const TRANSPORT_ICONS = {
 
 let db = null;
 function initIndexedDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open('RouteLogixOfflineMapsDB', 1);
-        request.onerror = () => resolve(null);
-        request.onsuccess = () => {
-            db = request.result;
-            updateOfflineTilesCountDisplay();
-            resolve(db);
-        };
-        request.onupgradeneeded = (e) => {
-            const database = e.target.result;
-            if (!database.objectStoreNames.contains('tiles')) {
-                database.createObjectStore('tiles', { keyPath: 'url' });
-            }
-        };
+    return new Promise((resolve) => {
+        try {
+            const request = indexedDB.open('RouteLogixOfflineMapsDB', 1);
+            request.onerror = () => resolve(null);
+            request.onsuccess = () => {
+                db = request.result;
+                updateOfflineTilesCountDisplay();
+                resolve(db);
+            };
+            request.onupgradeneeded = (e) => {
+                const database = e.target.result;
+                if (!database.objectStoreNames.contains('tiles')) {
+                    database.createObjectStore('tiles', { keyPath: 'url' });
+                }
+            };
+        } catch(e) { resolve(null); }
     });
 }
 
@@ -147,13 +149,13 @@ function updateNetworkStatus() {
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v6');
+    const saved = localStorage.getItem('routelogix_tat_state_v7');
     if (saved) {
         try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {}
     }
 }
 function saveStateToStorage() {
-    localStorage.setItem('routelogix_tat_state_v6', JSON.stringify(state));
+    localStorage.setItem('routelogix_tat_state_v7', JSON.stringify(state));
 }
 
 function initAuthScreen() {
@@ -182,21 +184,28 @@ function switchAuthTab(tab) {
     }
 }
 
-function handleLogin(e) {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    state.user = { name: email.split('@')[0], email, photo: null };
+function handleLoginDirect() {
+    const email = document.getElementById('login-email').value.trim();
+    if (!email) {
+        alert("Por favor ingrese su correo electrónico");
+        return;
+    }
+    state.user = { name: email.split('@')[0], email: email, photo: null };
     saveStateToStorage();
     document.getElementById('auth-screen').classList.add('hidden');
     updateDriverDisplay();
     renderAll();
 }
 
-function handleRegister(e) {
-    e.preventDefault();
-    const name = document.getElementById('reg-name').value;
-    const email = document.getElementById('reg-email').value;
+function handleRegisterDirect() {
+    const name = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
     const photo = document.getElementById('reg-photo-base64').value || null;
+    
+    if (!name || !email) {
+        alert("Por favor ingrese el nombre y correo electrónico");
+        return;
+    }
     state.user = { name, email, photo };
     saveStateToStorage();
     document.getElementById('auth-screen').classList.add('hidden');
@@ -669,9 +678,16 @@ function renderAgendaList() {
     `).join('');
 }
 function openClientModal() { document.getElementById('modal-client').classList.remove('hidden'); }
-function handleClientSubmit(e) {
-    e.preventDefault();
-    state.agenda.push({ id: 'c-' + Date.now(), name: document.getElementById('client-name').value, address: document.getElementById('client-address').value, phone: document.getElementById('client-phone').value, obs: document.getElementById('client-obs').value });
+function handleClientSubmitDirect() {
+    const name = document.getElementById('client-name').value.trim();
+    const address = document.getElementById('client-address').value.trim();
+    const phone = document.getElementById('client-phone').value.trim();
+    const obs = document.getElementById('client-obs').value.trim();
+    if (!name || !address) {
+        alert("Ingrese nombre y dirección del cliente");
+        return;
+    }
+    state.agenda.push({ id: 'c-' + Date.now(), name, address, phone, obs });
     saveStateToStorage();
     document.getElementById('modal-client').classList.add('hidden');
     renderAll();
