@@ -18,12 +18,10 @@ function triggerPWAInstall() {
             deferredPrompt = null;
         });
     } else {
-        alert("Para instalar esta aplicación:
-
-• En Google Chrome (PC/Android): Haz clic en el menú (tres puntos ⠇) superior derecho y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.
-• En Safari (iOS): Toca el botón Compartir ⎋ y selecciona 'Añadir a inicio'.");
+        alert("Para instalar esta aplicacion:\n\n• En Google Chrome (PC/Android): Haz clic en el menu (tres puntos ⠇) superior derecho y selecciona 'Instalar aplicacion' o 'Agregar a la pantalla principal'.\n• En Safari (iOS): Toca el boton Compartir ⎋ y selecciona 'Añadir a inicio'.");
     }
 }
+window.triggerPWAInstall = triggerPWAInstall;
 
 let state = {
     user: null,
@@ -46,7 +44,7 @@ let state = {
     ],
     agenda: [
         { id: 'c1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', phone: '3101234567', obs: 'Cliente prioritario' },
-        { id: 'c2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', phone: '3209876543', obs: 'Pide factura electrónica' }
+        { id: 'c2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', phone: '3209876543', obs: 'Pide factura electronica' }
     ],
     expenses: [],
     cashDenominations: { 
@@ -75,7 +73,7 @@ let db = null;
 function initIndexedDB() {
     return new Promise((resolve) => {
         try {
-            const request = indexedDB.open('RouteLogixOfflineMapsDB_v15', 1);
+            const request = indexedDB.open('RouteLogixOfflineMapsDB_v18', 1);
             request.onerror = () => resolve(null);
             request.onsuccess = () => {
                 db = request.result;
@@ -167,7 +165,7 @@ function updateNetworkStatus() {
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v15');
+    const saved = localStorage.getItem('routelogix_tat_state_v18');
     if (saved) {
         try { 
             const parsed = JSON.parse(saved);
@@ -189,7 +187,7 @@ function saveStateToStorage() {
         cashDenominations: state.cashDenominations,
         isLiveTracking: state.isLiveTracking
     };
-    localStorage.setItem('routelogix_tat_state_v15', JSON.stringify(persistData));
+    localStorage.setItem('routelogix_tat_state_v18', JSON.stringify(persistData));
 }
 
 function initAuthScreen() {
@@ -221,6 +219,7 @@ function switchAuthTab(tab) {
         formLogin.classList.add('hidden');
     }
 }
+window.switchAuthTab = switchAuthTab;
 
 function handleLoginDirect() {
     const emailInput = document.getElementById('login-email');
@@ -234,6 +233,7 @@ function handleLoginDirect() {
     renderAll();
     if (state.map) setTimeout(() => state.map.invalidateSize(), 200);
 }
+window.handleLoginDirect = handleLoginDirect;
 
 function handleRegisterDirect() {
     const nameInput = document.getElementById('reg-name');
@@ -249,6 +249,7 @@ function handleRegisterDirect() {
     renderAll();
     if (state.map) setTimeout(() => state.map.invalidateSize(), 200);
 }
+window.handleRegisterDirect = handleRegisterDirect;
 
 function logoutSession() {
     state.user = null;
@@ -256,6 +257,7 @@ function logoutSession() {
     const authScreen = document.getElementById('auth-screen');
     if (authScreen) authScreen.classList.remove('hidden');
 }
+window.logoutSession = logoutSession;
 
 function updateDriverDisplay() {
     if (!state.user) return;
@@ -275,6 +277,7 @@ function openDriverEditModal() {
     if (editName) editName.value = state.user.name;
     if (modalDriver) modalDriver.classList.remove('hidden');
 }
+window.openDriverEditModal = openDriverEditModal;
 
 function saveDriverProfile() {
     const editName = document.getElementById('edit-driver-name');
@@ -284,6 +287,7 @@ function saveDriverProfile() {
     if (modalDriver) modalDriver.classList.add('hidden');
     updateDriverDisplay();
 }
+window.saveDriverProfile = saveDriverProfile;
 
 function switchTab(tabId) {
     state.currentTab = tabId;
@@ -302,6 +306,7 @@ function switchTab(tabId) {
     if (tabId === 'map' && state.map) setTimeout(() => state.map.invalidateSize(), 200);
     try { lucide.createIcons(); } catch(e){}
 }
+window.switchTab = switchTab;
 
 function initMap() {
     const mapEl = document.getElementById('map');
@@ -354,12 +359,14 @@ function setMapTileStyle(styleName) {
         currentTileLayerObj.addTo(state.map);
     }
 }
+window.setMapTileStyle = setMapTileStyle;
 
 function openOfflineDownloadModal() {
     updateOfflineTilesCountDisplay();
     const modal = document.getElementById('modal-offline-download');
     if (modal) modal.classList.remove('hidden');
 }
+window.openOfflineDownloadModal = openOfflineDownloadModal;
 
 async function startDownloadingRouteMapTiles() {
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
@@ -405,6 +412,7 @@ async function startDownloadingRouteMapTiles() {
     updateOfflineTilesCountDisplay();
     setTimeout(() => { if (progContainer) progContainer.classList.add('hidden'); }, 3000);
 }
+window.startDownloadingRouteMapTiles = startDownloadingRouteMapTiles;
 
 function latLngToTileCoord(lat, lng, zoom) {
     let x = Math.floor((lng + 180) / 360 * Math.pow(2, zoom));
@@ -418,9 +426,10 @@ async function clearOfflineMapStorage() {
     try {
         const tx = db.transaction('tiles', 'readwrite');
         tx.objectStore('tiles').clear();
-        tx.oncomplete = () => { updateOfflineTilesCountDisplay(); alert("Borrado con éxito."); };
+        tx.oncomplete = () => { updateOfflineTilesCountDisplay(); alert("Borrado con exito."); };
     } catch(e) {}
 }
+window.clearOfflineMapStorage = clearOfflineMapStorage;
 
 function startLiveGPSWatcher() {
     if (!navigator.geolocation) return;
@@ -471,12 +480,14 @@ function toggleTrackingLive() {
     }
     try { lucide.createIcons(); } catch(e){}
 }
+window.toggleTrackingLive = toggleTrackingLive;
 
 function centrarGPS() {
     if (navigator.geolocation && state.map) {
         navigator.geolocation.getCurrentPosition(pos => state.map.setView([pos.coords.latitude, pos.coords.longitude], 16), () => {});
     }
 }
+window.centrarGPS = centrarGPS;
 
 async function searchMapAddress() {
     const input = document.getElementById('map-search-input');
@@ -488,11 +499,13 @@ async function searchMapAddress() {
         if (data && data.length > 0) state.map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 16);
     } catch(e) {}
 }
+window.searchMapAddress = searchMapAddress;
 
 function toggleStopMenu() {
     const submenu = document.getElementById('stop-submenu');
     if (submenu) submenu.classList.toggle('hidden');
 }
+window.toggleStopMenu = toggleStopMenu;
 
 function abrirModalParadaCentro() {
     const submenu = document.getElementById('stop-submenu');
@@ -508,6 +521,7 @@ function abrirModalParadaCentro() {
     if (valor) valor.value = "150000";
     if (modal) modal.classList.remove('hidden');
 }
+window.abrirModalParadaCentro = abrirModalParadaCentro;
 
 function guardarNuevaParada() {
     const nombre = document.getElementById('parada-nombre');
@@ -525,11 +539,12 @@ function guardarNuevaParada() {
     if (modal) modal.classList.add('hidden');
     renderAll();
 }
+window.guardarNuevaParada = guardarNuevaParada;
 
 function abrirModalClienteExistente() {
     const submenu = document.getElementById('stop-submenu');
     if (submenu) submenu.classList.add('hidden');
-    if (state.agenda.length === 0) { alert("Agenda vacía"); switchTab('agenda'); return; }
+    if (state.agenda.length === 0) { alert("Agenda vacia"); switchTab('agenda'); return; }
     const clientName = prompt("Cliente a añadir:
 " + state.agenda.map(c => "- " + c.name).join('
 '));
@@ -541,11 +556,13 @@ function abrirModalClienteExistente() {
     saveStateToStorage();
     renderAll();
 }
+window.abrirModalClienteExistente = abrirModalClienteExistente;
 
 function changeTransportMode(mode) {
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
     if (activeRoute) { activeRoute.transportMode = mode; state.transportMode = mode; saveStateToStorage(); renderAll(); }
 }
+window.changeTransportMode = changeTransportMode;
 
 function optimizarRutaInteligente() {
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
@@ -568,6 +585,7 @@ function optimizarRutaInteligente() {
     renderAll();
     alert("¡Ruta optimizada con IA Cuántica!");
 }
+window.optimizarRutaInteligente = optimizarRutaInteligente;
 
 function renderAll() {
     renderMapMarkersAndPolyline();
@@ -594,7 +612,7 @@ function renderMapMarkersAndPolyline() {
         let color = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
         let html = `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; color: #030712; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);">${index + 1}</div>`;
         let marker = L.marker([stop.lat, stop.lng], { icon: L.divIcon({ html, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(state.map);
-        marker.bindPopup(`<div class="p-1.5 text-xs bg-neutral-900 text-white rounded-xl"><strong>#${index+1} - ${stop.name}</strong><br>${stop.address}<br><button onclick="openEvidenceModal('${stop.id}')" class="mt-2 bg-cyan-500 text-neutral-950 font-bold px-3 py-1.5 rounded-lg shadow">Gestionar</button></div>`);
+        marker.bindPopup(`<div class="p-1.5 text-xs bg-neutral-900 text-white rounded-xl"><strong>#${index+1} - ${stop.name}</strong><br>${stop.address}<br><button onclick="window.openEvidenceModal('${stop.id}')" class="mt-2 bg-cyan-500 text-neutral-950 font-bold px-3 py-1.5 rounded-lg shadow">Gestionar</button></div>`);
         state.markerList.push(marker);
     });
     if (latlngs.length > 0) state.polylineLayer = L.polyline(latlngs, { color: '#06b6d4', weight: 4, opacity: 0.9 }).addTo(state.map);
@@ -638,7 +656,7 @@ function renderRoutesList() {
     container.innerHTML = state.routes.map(r => `
         <div class="bg-neutral-900 border ${r.active ? 'border-cyan-500 shadow-lg shadow-cyan-500/10' : 'border-neutral-800'} rounded-2xl p-4 flex justify-between items-center text-xs">
             <div><strong class="text-white text-sm">${r.name}</strong><p class="text-[11px] text-neutral-400 mt-0.5">${r.stops.length} paradas asignadas</p></div>
-            ${!r.active ? `<button onclick="makeRouteActive('${r.id}')" class="bg-cyan-500 text-neutral-950 font-bold px-3.5 py-2 rounded-xl shadow">Activar</button>` : '<span class="text-cyan-400 font-black bg-cyan-500/20 px-3 py-1 rounded-full border border-cyan-500/30">Activa</span>'}
+            ${!r.active ? `<button onclick="window.makeRouteActive('${r.id}')" class="bg-cyan-500 text-neutral-950 font-bold px-3.5 py-2 rounded-xl shadow">Activar</button>` : '<span class="text-cyan-400 font-black bg-cyan-500/20 px-3 py-1 rounded-full border border-cyan-500/30">Activa</span>'}
         </div>
     `).join('');
 }
@@ -648,6 +666,7 @@ function makeRouteActive(id) {
     saveStateToStorage();
     renderAll();
 }
+window.makeRouteActive = makeRouteActive;
 
 function openEvidenceModal(stopId) {
     let stop = null;
@@ -662,6 +681,7 @@ function openEvidenceModal(stopId) {
     if (notesInput) notesInput.value = stop.evidenceNotes || '';
     if (modal) modal.classList.remove('hidden');
 }
+window.openEvidenceModal = openEvidenceModal;
 
 function saveEvidence() {
     const stopIdInput = document.getElementById('evidence-stop-id');
@@ -680,6 +700,7 @@ function saveEvidence() {
     if (modal) modal.classList.add('hidden');
     renderAll();
 }
+window.saveEvidence = saveEvidence;
 
 function renderAgendaList() {
     const container = document.getElementById('lista-agenda');
@@ -687,7 +708,7 @@ function renderAgendaList() {
     container.innerHTML = state.agenda.map(c => `
         <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex justify-between items-center text-xs">
             <div><strong class="text-white text-sm">${c.name}</strong><p class="text-[11px] text-neutral-400 mt-0.5">${c.address}</p></div>
-            <button onclick="addClientToActiveRoute('${c.id}')" class="bg-cyan-500 text-neutral-950 font-black px-3.5 py-2 rounded-xl shadow">+</button>
+            <button onclick="window.addClientToActiveRoute('${c.id}')" class="bg-cyan-500 text-neutral-950 font-black px-3.5 py-2 rounded-xl shadow">+</button>
         </div>
     `).join('');
 }
@@ -696,6 +717,7 @@ function openClientModal() {
     const modal = document.getElementById('modal-client');
     if (modal) modal.classList.remove('hidden');
 }
+window.openClientModal = openClientModal;
 
 function handleClientSubmitDirect() {
     const nameInput = document.getElementById('client-name');
@@ -709,12 +731,13 @@ function handleClientSubmitDirect() {
     const phone = phoneInput ? phoneInput.value.trim() : '';
     const obs = obsInput ? obsInput.value.trim() : '';
 
-    if (!name || !address) { alert("Ingrese nombre y dirección"); return; }
+    if (!name || !address) { alert("Ingrese nombre y direccion"); return; }
     state.agenda.push({ id: 'c-' + Date.now(), name, address, phone, obs });
     saveStateToStorage();
     if (modal) modal.classList.add('hidden');
     renderAll();
 }
+window.handleClientSubmitDirect = handleClientSubmitDirect;
 
 function addClientToActiveRoute(id) {
     let c = state.agenda.find(x => x.id === id);
@@ -724,12 +747,14 @@ function addClientToActiveRoute(id) {
     saveStateToStorage();
     renderAll();
 }
+window.addClientToActiveRoute = addClientToActiveRoute;
 
 function setPaymentMode(mode) {
     state.paymentMode = mode;
     saveStateToStorage();
     renderFinances();
 }
+window.setPaymentMode = setPaymentMode;
 
 function initDenominationsUI() {
     const container = document.getElementById('denominations-container');
@@ -752,9 +777,9 @@ function initDenominationsUI() {
         <div class="flex justify-between items-center bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800 text-xs">
             <span class="text-neutral-300 font-bold">${d.l}</span>
             <div class="flex items-center space-x-2.5">
-                <button onclick="updateDenom('${d.k}', -1)" class="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-black transition">-</button>
+                <button onclick="window.updateDenom('${d.k}', -1)" class="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-black transition">-</button>
                 <span id="denom-count-${d.k}" class="w-7 text-center font-black text-cyan-400 text-sm">${state.cashDenominations[d.k] || 0}</span>
-                <button onclick="updateDenom('${d.k}', 1)" class="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-black transition">+</button>
+                <button onclick="window.updateDenom('${d.k}', 1)" class="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-black transition">+</button>
             </div>
         </div>
     `).join('');
@@ -767,6 +792,7 @@ function updateDenom(k, delta) {
     saveStateToStorage();
     renderFinances();
 }
+window.updateDenom = updateDenom;
 
 function resetCashCounter() {
     Object.keys(state.cashDenominations).forEach(k => state.cashDenominations[k] = 0);
@@ -774,6 +800,7 @@ function resetCashCounter() {
     saveStateToStorage();
     renderFinances();
 }
+window.resetCashCounter = resetCashCounter;
 
 function addExpense() {
     const conceptInput = document.getElementById('expense-concept');
@@ -786,6 +813,7 @@ function addExpense() {
     renderExpenses();
     renderFinances();
 }
+window.addExpense = addExpense;
 
 function renderExpenses() {
     const container = document.getElementById('expenses-list');
@@ -837,6 +865,7 @@ function openCreateRouteModal() {
     const modal = document.getElementById('modal-route');
     if (modal) modal.classList.remove('hidden');
 }
+window.openCreateRouteModal = openCreateRouteModal;
 
 function createNewRoute() {
     const nameInput = document.getElementById('new-route-name');
@@ -848,6 +877,7 @@ function createNewRoute() {
     if (modal) modal.classList.add('hidden');
     renderAll();
 }
+window.createNewRoute = createNewRoute;
 
 function importarArchivoRoutin(event) {
     const file = event.target.files[0];
@@ -867,3 +897,4 @@ function importarArchivoRoutin(event) {
     };
     reader.readAsText(file);
 }
+window.importarArchivoRoutin = importarArchivoRoutin;
