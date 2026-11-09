@@ -1,4 +1,3 @@
-
 let state = {
     user: null,
     transportMode: 'car',
