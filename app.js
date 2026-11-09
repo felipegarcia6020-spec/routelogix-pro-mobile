@@ -44,6 +44,7 @@ const TRANSPORT_ICONS = {
 };
 
 let db = null;
+
 function initIndexedDB() {
     return new Promise((resolve) => {
         try {
@@ -144,6 +145,7 @@ function loadStateFromStorage() {
         try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {}
     }
 }
+
 function saveStateToStorage() {
     localStorage.setItem('routelogix_tat_state_v9', JSON.stringify(state));
 }
