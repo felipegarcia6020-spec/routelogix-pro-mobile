@@ -24,9 +24,9 @@ let appData = {
             active: true,
             distanceKm: 12.4,
             stops: [
-                { id: 101, title: "Supermercado Central", address: "Carrera 7 # 12", lat: 4.5981, lng: -74.0760, value: 120000, timeEst: "10 mins", status: "pending", evidencePhoto: "", evidenceNotes: "" },
-                { id: 102, title: "Tienda La Esperanza", address: "Calle 26 # 14", lat: 4.6105, lng: -74.0705, value: 85000, timeEst: "15 mins", status: "pending", evidencePhoto: "", evidenceNotes: "" },
-                { id: 103, title: "Minimarket El Sol", address: "Carrera 13 # 63", lat: 4.6500, lng: -74.0600, value: 210000, timeEst: "22 mins", status: "pending", evidencePhoto: "", evidenceNotes: "" }
+                { id: 101, title: "Supermercado Central", address: "Carrera 7 # 12", lat: 4.5981, lng: -74.0760, value: 120000, timeEst: "10 mins", status: "pending", paymentMethod: "cash", evidencePhoto: "", evidenceNotes: "" },
+                { id: 102, title: "Tienda La Esperanza", address: "Calle 26 # 14", lat: 4.6105, lng: -74.0705, value: 85000, timeEst: "15 mins", status: "pending", paymentMethod: "cash", evidencePhoto: "", evidenceNotes: "" },
+                { id: 103, title: "Minimarket El Sol", address: "Carrera 13 # 63", lat: 4.6500, lng: -74.0600, value: 210000, timeEst: "22 mins", status: "pending", paymentMethod: "transfer", evidencePhoto: "", evidenceNotes: "" }
             ]
         }
     ],
@@ -73,6 +73,45 @@ window.onload = function() {
     }
 };
 
+/* MANEJO DE IMÁGENES DESDE CÁMARA O GALERÍA (BASE64) */
+function convertImageFileToBase64(fileInputEvent, callback) {
+    const file = fileInputEvent.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        callback(e.target.result);
+    };
+    reader.readAsDataURL(file);
+}
+
+function handleDriverPhotoSelect(e) {
+    convertImageFileToBase64(e, (base64) => {
+        document.getElementById('reg-photo-base64').value = base64;
+    });
+}
+
+function handleEditDriverPhotoSelect(e) {
+    convertImageFileToBase64(e, (base64) => {
+        document.getElementById('edit-driver-photo-base64').value = base64;
+    });
+}
+
+function handleClientPhotoSelect(e) {
+    convertImageFileToBase64(e, (base64) => {
+        document.getElementById('client-photo-base64').value = base64;
+    });
+}
+
+function handleEvidencePhotoSelect(e) {
+    convertImageFileToBase64(e, (base64) => {
+        document.getElementById('evidence-photo-base64').value = base64;
+        const preview = document.getElementById('evidence-preview-container');
+        const img = document.getElementById('evidence-preview-img');
+        img.src = base64;
+        preview.classList.remove('hidden');
+    });
+}
+
 /* AUTH Y SESIÓN */
 function checkAuthSession() {
     const session = localStorage.getItem('routelogix_session');
@@ -113,7 +152,7 @@ function handleRegister(e) {
     const name = document.getElementById('reg-name').value.trim();
     const email = document.getElementById('reg-email').value.trim();
     const pass = document.getElementById('reg-pass').value.trim();
-    const photo = document.getElementById('reg-photo').value.trim();
+    const photo = document.getElementById('reg-photo-base64').value.trim();
 
     if(appData.users.some(u => u.email === email)) {
         alert("El correo ya está registrado.");
@@ -148,13 +187,14 @@ function updateDriverHeader() {
 
 function openDriverEditModal() {
     document.getElementById('edit-driver-name').value = currentUser.name || "";
-    document.getElementById('edit-driver-photo').value = currentUser.photo || "";
+    document.getElementById('edit-driver-photo-base64').value = currentUser.photo || "";
     document.getElementById('modal-driver').classList.remove('hidden');
 }
 
 function saveDriverProfile() {
     currentUser.name = document.getElementById('edit-driver-name').value.trim() || currentUser.name;
-    currentUser.photo = document.getElementById('edit-driver-photo').value.trim();
+    const newPhoto = document.getElementById('edit-driver-photo-base64').value.trim();
+    if(newPhoto) currentUser.photo = newPhoto;
     localStorage.setItem('routelogix_session', JSON.stringify(currentUser));
     updateDriverHeader();
     document.getElementById('modal-driver').classList.add('hidden');
@@ -170,8 +210,9 @@ function initMap() {
     tileLayers['satellite'] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
 
     tileLayers['standard'].addTo(map);
-    // Posicionamos los controles de zoom abajo a la derecha para no chocar con la barra de búsqueda superior
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    
+    // Zoom control positioned at topright to avoid overlapping bottom buttons
+    L.control.zoom({ position: 'topright' }).addTo(map);
 
     renderMapStops();
 }
@@ -255,8 +296,9 @@ function renderMapStops() {
                 iconAnchor: [14, 14]
             });
 
+            const paymentLabel = stop.paymentMethod === 'transfer' ? 'Transferencia' : 'Efectivo';
             const marker = L.marker([stop.lat, stop.lng], {icon}).addTo(map)
-                .bindPopup(`<b>${index+1}. ${stop.title}</b><br>Dir: ${stop.address}<br>Factura: $${stop.value.toLocaleString()}<br>Estado: <span style="font-weight:bold;color:${stop.status==='delivered'?'#34d399':stop.status==='rejected'?'#f43f5e':'#38bdf8'}">${stop.status.toUpperCase()}</span><br>⏱️ Est: ${stop.timeEst || '15 mins'}`);
+                .bindPopup(`<b>${index+1}. ${stop.title}</b><br>Dir: ${stop.address}<br>Factura: $${stop.value.toLocaleString()}<br>Pago: ${paymentLabel}<br>Estado: <span style="font-weight:bold;color:${stop.status==='delivered'?'#34d399':stop.status==='rejected'?'#f43f5e':'#38bdf8'}">${stop.status.toUpperCase()}</span><br>⏱️ Est: ${stop.timeEst || '15 mins'}`);
             mapMarkers.push(marker);
         }
     });
@@ -268,7 +310,7 @@ function renderMapStops() {
     }
 }
 
-/* OPTIMIZACIÓN INTELIGENTE DE RUTA (Algoritmo avanzado ponderando distancia, semáforos y tráfico estimado) */
+/* OPTIMIZACIÓN INTELIGENTE DE RUTA */
 function optimizarRutaInteligente() {
     const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
     if(!activeRoute || activeRoute.stops.length <= 2) {
@@ -277,7 +319,7 @@ function optimizarRutaInteligente() {
     }
 
     let unvisited = [...activeRoute.stops];
-    let optimized = [unvisited.shift()]; // Mantener la primera parada como inicio
+    let optimized = [unvisited.shift()];
 
     while(unvisited.length > 0) {
         let curr = optimized[optimized.length - 1];
@@ -285,9 +327,7 @@ function optimizarRutaInteligente() {
         let minScore = Infinity;
 
         unvisited.forEach((p, idx) => {
-            // Distancia euclidiana base
             const dist = Math.hypot(p.lat - curr.lat, p.lng - curr.lng);
-            // Ponderación de semáforos y tráfico simulado por densidad de zona (factor de optimización IA TaT)
             const trafficFactor = 1.0 + ((idx % 3) * 0.15); 
             const score = dist * trafficFactor;
 
@@ -306,10 +346,10 @@ function optimizarRutaInteligente() {
     renderRoutesList();
     renderActiveRouteMetrics();
     renderRouteStopsManualList();
-    alert("¡Ruta optimizada con IA TaT! (Menor distancia, tráfico y semáforos reducidos)");
+    alert("¡Ruta optimizada con IA TaT! (Menor distancia y tráfico reducido)");
 }
 
-/* REORGANIZACIÓN MANUAL DE RUTA (Subir / Bajar paradas) */
+/* REORGANIZACIÓN MANUAL DE RUTA */
 function moveStopOrder(routeId, stopIndex, direction) {
     const route = appData.routes.find(r => r.id === routeId);
     if(!route) return;
@@ -327,33 +367,78 @@ function moveStopOrder(routeId, stopIndex, direction) {
     renderActiveRouteMetrics();
 }
 
-/* GESTIÓN DE PARADAS Y EVIDENCIAS (Entregados, Rechazados, Pendientes) */
-function openEvidenceModal(stopId) {
+/* GESTIÓN DE PARADAS Y EVIDENCIAS CON ACCESO RÁPIDO */
+function openEvidenceModal(stopId, initialStatus = 'delivered') {
     document.getElementById('evidence-stop-id').value = stopId;
-    document.getElementById('evidence-photo').value = '';
+    document.getElementById('evidence-status').value = initialStatus;
+    document.getElementById('evidence-photo-file').value = '';
+    document.getElementById('evidence-photo-base64').value = '';
     document.getElementById('evidence-notes').value = '';
+    document.getElementById('evidence-preview-container').classList.add('hidden');
+    
+    toggleEvidenceFields();
     document.getElementById('modal-evidence').classList.remove('hidden');
+}
+
+function toggleEvidenceFields() {
+    const status = document.getElementById('evidence-status').value;
+    const paymentContainer = document.getElementById('container-payment-method');
+    const notesLabel = document.getElementById('evidence-notes-label');
+    
+    if(status === 'rejected') {
+        paymentContainer.classList.add('hidden');
+        notesLabel.innerText = "Motivo del Rechazo (Obligatorio)";
+    } else {
+        paymentContainer.classList.remove('hidden');
+        notesLabel.innerText = "Observaciones de Entrega";
+    }
+}
+
+/* ACCESO RÁPIDO 1-TAP PARA MARCAR ENTREGADO O RECHAZADO DIRECTAMENTE */
+function quickMarkStop(stopId, status) {
+    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
+    const stop = activeRoute.stops.find(s => s.id === stopId);
+    if(stop) {
+        stop.status = status;
+        if(status === 'delivered') {
+            stop.paymentMethod = appData.paymentMode || 'cash';
+        }
+        saveLocalStorage();
+        renderMapStops();
+        renderRouteStopsManualList();
+        updateOrderStatusCounts();
+        updateFinancialCalculations();
+        
+        if(status === 'delivered') {
+            alert(`✅ ${stop.title} marcado como ENTREGADO.`);
+        } else {
+            alert(`❌ ${stop.title} marcado como RECHAZADO.`);
+        }
+    }
 }
 
 function saveEvidence() {
     const stopId = parseInt(document.getElementById('evidence-stop-id').value);
     const status = document.getElementById('evidence-status').value;
-    const photo = document.getElementById('evidence-photo').value.trim();
+    const paymentMethod = document.getElementById('evidence-payment-method').value;
+    const photoBase64 = document.getElementById('evidence-photo-base64').value.trim();
     const notes = document.getElementById('evidence-notes').value.trim();
 
     const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
     const stop = activeRoute.stops.find(s => s.id === stopId);
     if(stop) {
         stop.status = status;
-        stop.evidencePhoto = photo;
+        stop.paymentMethod = status === 'delivered' ? paymentMethod : stop.paymentMethod;
+        stop.evidencePhoto = photoBase64;
         stop.evidenceNotes = notes;
+        
         saveLocalStorage();
         renderMapStops();
         renderRouteStopsManualList();
         updateOrderStatusCounts();
         updateFinancialCalculations();
         document.getElementById('modal-evidence').classList.add('hidden');
-        alert("¡Evidencia registrada correctamente!");
+        alert("¡Entrega y evidencia registradas con éxito!");
     }
 }
 
@@ -412,6 +497,7 @@ function guardarNuevaParada() {
         value: valor,
         timeEst: '15 mins',
         status: 'pending',
+        paymentMethod: appData.paymentMode || 'cash',
         evidencePhoto: '',
         evidenceNotes: ''
     });
@@ -519,26 +605,37 @@ function renderRouteStopsManualList() {
         if(stop.status === 'delivered') statusBadge = '<span class="bg-emerald-600/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded">Entregado</span>';
         else if(stop.status === 'rejected') statusBadge = '<span class="bg-rose-600/20 text-rose-400 text-[10px] px-2 py-0.5 rounded">Rechazado</span>';
 
+        const paymentBadge = stop.paymentMethod === 'transfer' ? '<span class="bg-cyan-600/20 text-cyan-400 text-[10px] px-2 py-0.5 rounded">Transferencia</span>' : '<span class="bg-amber-600/20 text-amber-400 text-[10px] px-2 py-0.5 rounded">Efectivo</span>';
+
         const item = document.createElement('div');
-        item.className = "bg-neutral-900 border border-neutral-800 p-3.5 rounded-2xl space-y-2 text-xs shadow";
+        item.className = "bg-neutral-900 border border-neutral-800 p-3.5 rounded-2xl space-y-2.5 text-xs shadow";
         item.innerHTML = `
             <div class="flex justify-between items-start">
                 <div>
                     <div class="flex items-center space-x-2">
                         <strong class="text-white">#${idx+1}. ${stop.title}</strong>
                         ${statusBadge}
+                        ${stop.status === 'delivered' ? paymentBadge : ''}
                     </div>
                     <p class="text-neutral-400 mt-1">${stop.address} • <strong class="text-emerald-400">$${(stop.value||0).toLocaleString()}</strong></p>
-                    ${stop.evidenceNotes ? `<p class="text-[11px] text-neutral-300 mt-1 italic">Evidencia: ${stop.evidenceNotes}</p>` : ''}
+                    ${stop.evidenceNotes ? `<p class="text-[11px] text-neutral-300 mt-1 italic">Nota: ${stop.evidenceNotes}</p>` : ''}
                 </div>
                 <div class="flex flex-col gap-1">
                     <button onclick="moveStopOrder(${route.id}, ${idx}, -1)" class="w-7 h-7 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg flex items-center justify-center font-bold">▲</button>
                     <button onclick="moveStopOrder(${route.id}, ${idx}, 1)" class="w-7 h-7 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg flex items-center justify-center font-bold">▼</button>
                 </div>
             </div>
-            <div class="flex gap-2 pt-2 border-t border-neutral-800">
-                <button onclick="openEvidenceModal(${stop.id})" class="flex-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 py-2 rounded-xl font-semibold">Registrar Evidencia</button>
-                <button onclick="removeStopFromRoute(${route.id}, ${stop.id})" class="bg-rose-500/10 text-rose-400 px-3 py-2 rounded-xl font-semibold">Eliminar</button>
+
+            <!-- ACCESOS RÁPIDOS PARA ENTREGAS Y RECHAZOS -->
+            <div class="grid grid-cols-3 gap-2 pt-1">
+                <button onclick="quickMarkStop(${stop.id}, 'delivered')" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 py-1.5 rounded-xl font-bold flex items-center justify-center gap-1">✅ Entregar</button>
+                <button onclick="quickMarkStop(${stop.id}, 'rejected')" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 py-1.5 rounded-xl font-bold flex items-center justify-center gap-1">❌ Rechazar</button>
+                <button onclick="openEvidenceModal(${stop.id}, '${stop.status}')" class="bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 py-1.5 rounded-xl font-bold">📸 Evidencia</button>
+            </div>
+
+            <div class="flex justify-between pt-1 border-t border-neutral-800 text-[11px]">
+                <span class="text-neutral-500">Acción avanzada o eliminar:</span>
+                <button onclick="removeStopFromRoute(${route.id}, ${stop.id})" class="text-rose-400 font-semibold">Eliminar de Ruta</button>
             </div>
         `;
         container.appendChild(item);
@@ -610,7 +707,8 @@ function openClientModal(mode, clientId) {
     document.getElementById('client-name').value = '';
     document.getElementById('client-address').value = '';
     document.getElementById('client-phone').value = '';
-    document.getElementById('client-photo').value = '';
+    document.getElementById('client-photo-file').value = '';
+    document.getElementById('client-photo-base64').value = '';
     document.getElementById('client-obs').value = '';
 
     if(mode === 'edit' && clientId) {
@@ -620,7 +718,7 @@ function openClientModal(mode, clientId) {
             document.getElementById('client-name').value = cli.nombre;
             document.getElementById('client-address').value = cli.direccion;
             document.getElementById('client-phone').value = cli.telefono || '';
-            document.getElementById('client-photo').value = cli.foto || '';
+            document.getElementById('client-photo-base64').value = cli.foto || '';
             document.getElementById('client-obs').value = cli.observacion || '';
             document.getElementById('modal-client-title').innerText = 'Editar Cliente';
         }
@@ -636,12 +734,12 @@ function handleClientSubmit(e) {
     const nombre = document.getElementById('client-name').value.trim();
     const direccion = document.getElementById('client-address').value.trim();
     const telefono = document.getElementById('client-phone').value.trim();
-    const foto = document.getElementById('client-photo').value.trim();
+    const foto = document.getElementById('client-photo-base64').value.trim();
     const observacion = document.getElementById('client-obs').value.trim();
 
     if(id) {
         const cli = appData.agenda.find(c => c.id == id);
-        if(cli) { cli.nombre = nombre; cli.direccion = direccion; cli.telefono = telefono; cli.foto = foto; cli.observacion = observacion; }
+        if(cli) { cli.nombre = nombre; cli.direccion = direccion; cli.telefono = telefono; if(foto) cli.foto = foto; cli.observacion = observacion; }
     } else {
         appData.agenda.push({ id: Date.now(), nombre, direccion, telefono, foto, observacion });
     }
@@ -671,6 +769,7 @@ function agregarAgendaARuta(id) {
         value: 100000,
         timeEst: '15 mins',
         status: 'pending',
+        paymentMethod: 'cash',
         evidencePhoto: '',
         evidenceNotes: ''
     });
@@ -782,26 +881,33 @@ function deleteExpense(id) {
 function updateFinancialCalculations() {
     const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
     
-    // 1. Total Facturado (de las paradas entregadas o de toda la ruta)
     const totalFacturado = activeRoute ? activeRoute.stops.reduce((acc, s) => acc + (s.value || 0), 0) : 0;
     
-    // 2. Dinero Físico (contador de billetes y monedas)
     let dineroFisico = 0;
     denominations.forEach(d => {
         dineroFisico += d.value * (appData.cashCounts[d.value] || 0);
     });
 
-    // 3. Total Transferencias (si el modo es transferencia o calculado por diferencia de recaudos)
-    let totalTransferencias = appData.paymentMode === 'transfer' ? totalFacturado : Math.max(0, totalFacturado - dineroFisico);
+    // Calcular transferencias en base a los pedidos entregados cuyo pago sea 'transfer' o modo global
+    let totalTransferencias = 0;
+    if(activeRoute) {
+        activeRoute.stops.forEach(s => {
+            if(s.status === 'delivered') {
+                if(s.paymentMethod === 'transfer') {
+                    totalTransferencias += s.value || 0;
+                }
+            }
+        });
+    }
+    if(totalTransferencias === 0 && appData.paymentMode === 'transfer') {
+        totalTransferencias = totalFacturado;
+    }
 
-    // Total Gastos Operativos
     const totalGastos = appData.expenses.reduce((acc, e) => acc + e.amount, 0);
 
-    // Deducción / Balance Neto Total (Ingresos totales - Gastos)
     const ingresosTotales = dineroFisico + totalTransferencias;
     const netoFinal = ingresosTotales - totalGastos;
 
-    // Actualizar elementos visuales
     document.getElementById('summary-facturado').innerText = `$${totalFacturado.toLocaleString()}`;
     document.getElementById('summary-fisico').innerText = `$${dineroFisico.toLocaleString()}`;
     document.getElementById('summary-transfer').innerText = `$${totalTransferencias.toLocaleString()}`;
@@ -809,7 +915,6 @@ function updateFinancialCalculations() {
     document.getElementById('summary-neto-total').innerText = `$${netoFinal.toLocaleString()}`;
     document.getElementById('final-balance-badge').innerText = `$${netoFinal.toLocaleString()} Neto`;
     document.getElementById('counter-total-display').innerText = `$${dineroFisico.toLocaleString()}`;
-    document.getElementById('header-net-badge').innerText = `$${netoFinal.toLocaleString()}`;
 }
 
 /* IMPORTAR ARCHIVO ROUTIN (.bin / JSON) */
