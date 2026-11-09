@@ -1,4 +1,4 @@
-const CACHE_NAME = 'routelogix-pro-v18';
+const CACHE_NAME = 'routelogix-pro-v19';
 const coreAssets = [
   './',
   './index.html',
