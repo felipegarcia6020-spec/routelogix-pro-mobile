@@ -139,18 +139,19 @@ function updateNetworkStatus() {
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v10');
+    const saved = localStorage.getItem('routelogix_tat_state_v11');
     if (saved) {
         try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {}
     }
 }
 
 function saveStateToStorage() {
-    localStorage.setItem('routelogix_tat_state_v10', JSON.stringify(state));
+    localStorage.setItem('routelogix_tat_state_v11', JSON.stringify(state));
 }
 
 function initAuthScreen() {
     const authScreen = document.getElementById('auth-screen');
+    if (!authScreen) return;
     if (state.user) {
         authScreen.classList.add('hidden');
         updateDriverDisplay();
@@ -168,16 +169,19 @@ function switchAuthTab(tab) {
     if (tab === 'login') {
         btnLogin.className = "flex-1 py-2 rounded-lg bg-blue-600 text-white transition";
         btnReg.className = "flex-1 py-2 rounded-lg text-neutral-400 transition";
-        formLogin.classList.remove('hidden'); formReg.classList.add('hidden');
+        formLogin.classList.remove('hidden'); 
+        formReg.classList.add('hidden');
     } else {
         btnReg.className = "flex-1 py-2 rounded-lg bg-emerald-600 text-white transition";
         btnLogin.className = "flex-1 py-2 rounded-lg text-neutral-400 transition";
-        formReg.classList.remove('hidden'); formLogin.classList.add('hidden');
+        formReg.classList.remove('hidden'); 
+        formLogin.classList.add('hidden');
     }
 }
 
 function handleLoginDirect() {
     const emailInput = document.getElementById('login-email');
+    const passInput = document.getElementById('login-pass');
     const email = emailInput ? emailInput.value.trim() : "conductor@routelogix.com";
     if (!email) {
         alert("Por favor ingrese su correo electrónico");
@@ -189,13 +193,18 @@ function handleLoginDirect() {
     if (authScreen) authScreen.classList.add('hidden');
     updateDriverDisplay();
     renderAll();
+    if (state.map) setTimeout(() => state.map.invalidateSize(), 200);
 }
 
 function handleRegisterDirect() {
     const nameInput = document.getElementById('reg-name');
     const emailInput = document.getElementById('reg-email');
-    const name = nameInput ? nameInput.value.trim() : "Carlos Pérez";
-    const email = emailInput ? emailInput.value.trim() : "carlos@routelogix.com";
+    const passInput = document.getElementById('reg-pass');
+    
+    const name = nameInput ? nameInput.value.trim() : "";
+    const email = emailInput ? emailInput.value.trim() : "";
+    const pass = passInput ? passInput.value.trim() : "";
+
     if (!name || !email) {
         alert("Por favor ingrese el nombre y correo electrónico");
         return;
@@ -206,6 +215,7 @@ function handleRegisterDirect() {
     if (authScreen) authScreen.classList.add('hidden');
     updateDriverDisplay();
     renderAll();
+    if (state.map) setTimeout(() => state.map.invalidateSize(), 200);
 }
 
 function logoutSession() {
