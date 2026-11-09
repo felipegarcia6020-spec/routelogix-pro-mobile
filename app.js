@@ -1,4 +1,4 @@
-/* RouteLogix Pro Enterprise - v26 Application Logic */
+/* RouteLogix Pro Enterprise - v27 Application Logic */
 
 let deferredPrompt = null;
 
@@ -26,6 +26,7 @@ function triggerPWAInstall() {
 
 let state = {
     user: null,
+    sheetsUrl: localStorage.getItem('routelogix_sheets_url') || '',
     transportMode: 'car',
     currentTab: 'map',
     mapTileStyle: 'standard',
@@ -87,7 +88,7 @@ let currentConfigQRBase64 = null;
 function initIndexedDB() {
     return new Promise((resolve) => {
         try {
-            const request = indexedDB.open('RouteLogixEnterpriseDB_v26', 1);
+            const request = indexedDB.open('RouteLogixEnterpriseDB_v27', 1);
             request.onerror = () => resolve(null);
             request.onsuccess = () => {
                 db = request.result;
@@ -220,7 +221,7 @@ function updateNetworkStatus() {
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_enterprise_state_v26');
+    const saved = localStorage.getItem('routelogix_enterprise_state_v27');
     if (saved) {
         try { 
             const parsed = JSON.parse(saved);
@@ -232,6 +233,7 @@ function loadStateFromStorage() {
 function saveStateToStorage() {
     const persistData = {
         user: state.user,
+        sheetsUrl: state.sheetsUrl,
         transportMode: state.transportMode,
         currentTab: state.currentTab,
         mapTileStyle: state.mapTileStyle,
@@ -244,7 +246,7 @@ function saveStateToStorage() {
         cashDenominations: state.cashDenominations,
         isLiveTracking: state.isLiveTracking
     };
-    localStorage.setItem('routelogix_enterprise_state_v26', JSON.stringify(persistData));
+    localStorage.setItem('routelogix_enterprise_state_v27', JSON.stringify(persistData));
 }
 
 function initAuthScreen() {
@@ -258,14 +260,73 @@ function initAuthScreen() {
     }
 }
 
-function handleLoginDirect() {
+function openSheetsConfigModal() {
+    const input = document.getElementById('cfg-sheets-url');
+    if (input) input.value = state.sheetsUrl || '';
+    const modal = document.getElementById('modal-sheets-config');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function saveSheetsConfig() {
+    const input = document.getElementById('cfg-sheets-url');
+    const url = input ? input.value.trim() : '';
+    state.sheetsUrl = url;
+    localStorage.setItem('routelogix_sheets_url', url);
+    saveStateToStorage();
+    const modal = document.getElementById('modal-sheets-config');
+    if (modal) modal.classList.add('hidden');
+    alert("¡URL de Google Sheets guardada con éxito!");
+}
+
+async function handleLoginWithSheetsValidation() {
     const nameInput = document.getElementById('login-name');
     const emailInput = document.getElementById('login-email');
-    const name = nameInput ? nameInput.value.trim() : "Conductor Corporativo";
-    const email = emailInput ? emailInput.value.trim() : "conductor@routelogix.com";
+    const errorMsg = document.getElementById('login-error-msg');
     
-    if (!name) { alert("Ingrese el nombre del conductor"); return; }
+    const name = nameInput ? nameInput.value.trim() : "";
+    const email = emailInput ? emailInput.value.trim().toLowerCase() : "";
     
+    if (!name || !email) {
+        if (errorMsg) {
+            errorMsg.innerText = "Ingrese su nombre y correo de licencia.";
+            errorMsg.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (errorMsg) errorMsg.classList.add('hidden');
+
+    // Si hay una URL de Google Sheets configurada, consultamos el backend para verificar si el usuario está activo o vetado
+    if (state.sheetsUrl) {
+        try {
+            const btn = document.querySelector('#form-login button');
+            if (btn) btn.innerText = "Verificando licencia en Google Sheets...";
+            
+            const res = await fetch(`${state.sheetsUrl}?email=${encodeURIComponent(email)}`);
+            const data = await res.json();
+            
+            if (btn) btn.innerText = "Verificar Licencia e Iniciar";
+            
+            // Esperamos que el script devuelva { status: 'active' } o { status: 'blocked' } o { status: 'not_found' }
+            if (data.status === 'blocked' || data.status === 'inactive') {
+                if (errorMsg) {
+                    errorMsg.innerText = "❌ Licencia vencida o usuario vetado por el administrador.";
+                    errorMsg.classList.remove('hidden');
+                }
+                return;
+            } else if (data.status === 'not_found') {
+                if (errorMsg) {
+                    errorMsg.innerText = "⚠️ Este correo no está registrado en la base de datos de pagos.";
+                    errorMsg.classList.remove('hidden');
+                }
+                return;
+            }
+        } catch(e) {
+            console.warn("No se pudo conectar al Google Sheets, permitiendo modo offline temporal o validación local:", e);
+        }
+    }
+
+    // Si pasa la validación o está en modo local sin URL de sheets configurada
     state.user = { name, email, photo: null };
     saveStateToStorage();
     
@@ -281,13 +342,15 @@ function logoutSession() {
         return;
     }
     state.user = null;
-    localStorage.removeItem('routelogix_enterprise_state_v26');
+    localStorage.removeItem('routelogix_enterprise_state_v27');
     const authScreen = document.getElementById('auth-screen');
     if (authScreen) {
         authScreen.classList.remove('hidden');
     }
     const nameInput = document.getElementById('login-name');
+    const emailInput = document.getElementById('login-email');
     if (nameInput) nameInput.value = '';
+    if (emailInput) emailInput.value = '';
 }
 
 function updateDriverDisplay() {
@@ -342,7 +405,6 @@ function initMap() {
     state.map = L.map('map', { zoomControl: false }).setView([4.6097, -74.0817], 14);
     setMapTileStyle('standard');
 
-    // Desactivar rastreo automático al mover el mapa manualmente para total libertad
     state.map.on('dragstart zoomstart', () => {
         if (state.isLiveTracking) {
             state.isLiveTracking = false;
@@ -385,7 +447,7 @@ L.OfflineTileLayer = L.TileLayer.extend({
 let currentTileLayerObj = null;
 const tileUrls = {
     standard: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    dark: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', // OSM estándar con filtro CSS inteligente para modo oscuro 100% libre de API Key
     satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
 };
 
@@ -395,6 +457,16 @@ function setMapTileStyle(styleName) {
         const btn = document.getElementById(`style-${s}`);
         if (btn) btn.className = s === styleName ? "px-3 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 font-bold transition" : "px-3 py-1.5 rounded-xl text-neutral-300 hover:text-white font-bold transition";
     });
+    
+    const mapContainer = document.getElementById('map');
+    if (mapContainer) {
+        if (styleName === 'dark') {
+            mapContainer.classList.add('dark-map-tiles');
+        } else {
+            mapContainer.classList.remove('dark-map-tiles');
+        }
+    }
+
     if (currentTileLayerObj && state.map) state.map.removeLayer(currentTileLayerObj);
     if (state.map) {
         currentTileLayerObj = new L.OfflineTileLayer(tileUrls[styleName], { maxZoom: 19, subdomains: 'abc' });

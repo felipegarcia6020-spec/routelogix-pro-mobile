@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RouteLogix Pro | Enterprise v26</title>
+    <title>RouteLogix Pro | Enterprise v27</title>
     
     <meta name="theme-color" content="#030712">
     <meta name="mobile-web-app-capable" content="yes">
@@ -27,20 +27,24 @@
             <div class="text-center space-y-2">
                 <div class="w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 rounded-2xl flex items-center justify-center mx-auto mb-2 font-black text-2xl shadow-lg shadow-cyan-500/30">RL</div>
                 <h1 class="text-2xl font-black text-white tracking-wider bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">ROUTELOGIX PRO</h1>
-                <p class="text-xs text-neutral-400 font-medium">Enterprise Edition - v26 (Móvil Corporativo)</p>
+                <p class="text-xs text-neutral-400 font-medium">Enterprise v27 • Licenciamiento Google Sheets</p>
             </div>
 
-            <!-- FORM LOGIN / REGISTRO CONDUCTOR -->
             <div id="form-login" class="space-y-3.5 text-xs">
                 <div>
-                    <label class="block text-neutral-400 font-medium mb-1.5">Nombre del Conductor (Turno Actual)</label>
-                    <input type="text" id="login-name" placeholder="Ej. Carlos Pérez (Conductor B)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
+                    <label class="block text-neutral-400 font-medium mb-1.5">Nombre del Conductor</label>
+                    <input type="text" id="login-name" placeholder="Ej. Carlos Pérez" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
                 </div>
                 <div>
-                    <label class="block text-neutral-400 font-medium mb-1.5">Correo Electrónico Corporativo</label>
-                    <input type="email" id="login-email" placeholder="conductor@routelogix.com" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
+                    <label class="block text-neutral-400 font-medium mb-1.5">Correo Electrónico (Validación Licencia)</label>
+                    <input type="email" id="login-email" placeholder="cliente@empresa.com" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
                 </div>
-                <button type="button" onclick="handleLoginDirect()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black py-3.5 rounded-xl shadow-lg shadow-cyan-500/20 transition-all active:scale-95">Iniciar Turno en Móvil</button>
+                <div id="login-error-msg" class="text-rose-400 font-bold text-center hidden"></div>
+                <button type="button" onclick="handleLoginWithSheetsValidation()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black py-3.5 rounded-xl shadow-lg shadow-cyan-500/20 transition-all active:scale-95">Verificar Licencia e Iniciar</button>
+            </div>
+            
+            <div class="pt-2 border-t border-neutral-800 text-center">
+                <button onclick="openSheetsConfigModal()" class="text-[11px] text-cyan-400 underline font-bold">⚙️ Configurar Enlace de Google Sheets (Admin)</button>
             </div>
         </div>
     </div>
@@ -68,8 +72,7 @@
                 <i data-lucide="download" class="w-3.5 h-3.5"></i> <span>Instalar</span>
             </button>
 
-            <!-- BOTÓN CAMBIAR CONDUCTOR / ELIMINAR CUENTA CORPORATIVA -->
-            <button onclick="logoutSession()" class="px-3 py-2 bg-neutral-800 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center gap-1.5 border border-neutral-700/80 transition shadow-inner" title="Cambiar Conductor del Móvil">
+            <button onclick="logoutSession()" class="px-3 py-2 bg-neutral-800 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center gap-1.5 border border-neutral-700/80 transition shadow-inner" title="Cambiar Conductor">
                 <i data-lucide="user-minus" class="w-4 h-4"></i>
                 <span class="font-bold hidden sm:inline">Cambiar Conductor</span>
             </button>
@@ -96,7 +99,7 @@
 
             <div class="absolute top-16 left-3 z-30 flex gap-1 bg-neutral-900/90 backdrop-blur-md p-1 rounded-2xl border border-neutral-700/80 text-[10px] shadow-2xl font-bold">
                 <button onclick="setMapTileStyle('standard')" id="style-standard" class="px-3 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 transition">Clásico</button>
-                <button onclick="setMapTileStyle('dark')" id="style-dark" class="px-3 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Oscuro</button>
+                <button onclick="setMapTileStyle('dark')" id="style-dark" class="px-3 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Oscuro (OpenSource)</button>
                 <button onclick="setMapTileStyle('satellite')" id="style-satellite" class="px-3 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Satélite</button>
             </div>
 
@@ -318,6 +321,24 @@
     </nav>
 
     <!-- MODALS -->
+    <!-- MODAL CONFIG GOOGLE SHEETS LICENSING -->
+    <div id="modal-sheets-config" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-black text-sm text-cyan-400">Control de Licencias (Google Sheets)</h3>
+            <p class="text-neutral-400 text-[11px]">Pega la URL de tu Google Apps Script (Web App) conectado al Google Sheets para validar licencias y vetar clientes automáticamente.</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-neutral-400 font-medium mb-1">URL Web App Google Sheets</label>
+                    <input type="text" id="cfg-sheets-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <div class="flex gap-2.5 pt-2">
+                    <button onclick="saveSheetsConfig()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Guardar URL</button>
+                    <button onclick="document.getElementById('modal-sheets-config').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold transition">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-offline-download" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <div class="flex items-center space-x-3.5">
