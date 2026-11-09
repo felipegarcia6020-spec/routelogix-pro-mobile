@@ -18,7 +18,10 @@ function triggerPWAInstall() {
             deferredPrompt = null;
         });
     } else {
-        alert("Para instalar esta aplicación:\n\n• En Google Chrome (PC/Android): Haz clic en el menú (tres puntos ⠇) superior derecho y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.\n• En Safari (iOS): Toca el botón Compartir ⎋ y selecciona 'Añadir a inicio'.");
+        alert("Para instalar esta aplicación:
+
+• En Google Chrome (PC/Android): Haz clic en el menú (tres puntos ⠇) superior derecho y selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.
+• En Safari (iOS): Toca el botón Compartir ⎋ y selecciona 'Añadir a inicio'.");
     }
 }
 
@@ -35,17 +38,18 @@ let state = {
             active: true,
             transportMode: 'car',
             stops: [
-                { id: 's1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', lat: 4.6097, lng: -74.0817, status: 'pending', value: 125000, paymentMethod: 'cash', evidenceNotes: '' },
-                { id: 's2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', lat: 4.6150, lng: -74.0750, status: 'pending', value: 310000, paymentMethod: 'cash', evidenceNotes: '' },
-                { id: 's3', name: 'Minimercado Central', address: 'Calle 19 # 3-15', lat: 4.6030, lng: -74.0700, status: 'pending', value: 180000, paymentMethod: 'cash', evidenceNotes: '' }
+                { id: 's1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', lat: 4.6097, lng: -74.0817, status: 'pending', value: 125000, paymentMethod: 'cash', evidenceNotes: '', photoData: null, signatureData: null },
+                { id: 's2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', lat: 4.6150, lng: -74.0750, status: 'pending', value: 310000, paymentMethod: 'cash', evidenceNotes: '', photoData: null, signatureData: null },
+                { id: 's3', name: 'Minimercado Central', address: 'Calle 19 # 3-15', lat: 4.6030, lng: -74.0700, status: 'pending', value: 180000, paymentMethod: 'cash', evidenceNotes: '', photoData: null, signatureData: null }
             ]
         }
     ],
     agenda: [
-        { id: 'c1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', phone: '3101234567', obs: 'Cliente prioritario' },
-        { id: 'c2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', phone: '3209876543', obs: 'Pide factura electrónica' }
+        { id: 'c1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', phone: '3101234567', debt: 50000, creditLimit: 200000, obs: 'Cliente prioritario' },
+        { id: 'c2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', phone: '3209876543', debt: 0, creditLimit: 500000, obs: 'Pide factura electrónica' }
     ],
     expenses: [],
+    outboxQueue: [],
     cashDenominations: { 
         '100000': 0, '50000': 0, '20000': 0, '10000': 0, 
         '5000': 0, '2000': 0, '1000': 0, 
@@ -68,21 +72,29 @@ const TRANSPORT_ICONS = {
 };
 
 let db = null;
+let sigCanvas = null;
+let sigCtx = null;
+let isDrawing = false;
+let currentPhotoBase64 = null;
 
 function initIndexedDB() {
     return new Promise((resolve) => {
         try {
-            const request = indexedDB.open('RouteLogixOfflineMapsDB_v19', 1);
+            const request = indexedDB.open('RouteLogixEnterpriseDB_v20', 1);
             request.onerror = () => resolve(null);
             request.onsuccess = () => {
                 db = request.result;
                 updateOfflineTilesCountDisplay();
+                processOutboxQueue();
                 resolve(db);
             };
             request.onupgradeneeded = (e) => {
                 const database = e.target.result;
                 if (!database.objectStoreNames.contains('tiles')) {
                     database.createObjectStore('tiles', { keyPath: 'url' });
+                }
+                if (!database.objectStoreNames.contains('outbox')) {
+                    database.createObjectStore('outbox', { keyPath: 'id', autoIncrement: true });
                 }
             };
         } catch(e) { resolve(null); }
@@ -132,6 +144,47 @@ async function updateOfflineTilesCountDisplay() {
     }
 }
 
+// Outbox Pattern para sincronización offline
+function enqueueOutboxAction(actionType, payload) {
+    if (!db) {
+        state.outboxQueue.push({ actionType, payload, timestamp: Date.now() });
+        return;
+    }
+    try {
+        const tx = db.transaction('outbox', 'readwrite');
+        tx.objectStore('outbox').add({ actionType, payload, timestamp: Date.now() });
+        processOutboxQueue();
+    } catch(e) {}
+}
+
+function processOutboxQueue() {
+    if (!navigator.onLine || !db) return;
+    const syncBadge = document.getElementById('outbox-sync-badge');
+    if (syncBadge) syncBadge.classList.remove('hidden');
+
+    try {
+        const tx = db.transaction('outbox', 'readwrite');
+        const store = tx.objectStore('outbox');
+        const req = store.openCursor();
+        req.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+                // Simulación de envío a servidor backend en la nube
+                setTimeout(() => {
+                    store.delete(cursor.primaryKey);
+                }, 500);
+                cursor.continue();
+            } else {
+                setTimeout(() => {
+                    if (syncBadge) syncBadge.classList.add('hidden');
+                }, 1000);
+            }
+        };
+    } catch(e) {
+        if (syncBadge) syncBadge.classList.add('hidden');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     loadStateFromStorage();
     initAuthScreen();
@@ -140,8 +193,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     initMap();
     renderAll();
     initDenominationsUI();
+    initSignatureCanvas();
     startLiveGPSWatcher();
-    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('online', () => { updateNetworkStatus(); processOutboxQueue(); });
     window.addEventListener('offline', updateNetworkStatus);
     updateNetworkStatus();
 });
@@ -156,15 +210,16 @@ function updateNetworkStatus() {
         badge.className = "px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1";
         dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse";
         text.innerText = "Online";
+        processOutboxQueue();
     } else {
         badge.className = "px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1";
         dot.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
-        text.innerText = "Offline";
+        text.innerText = "Offline (Outbox Activo)";
     }
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v19');
+    const saved = localStorage.getItem('routelogix_enterprise_state_v20');
     if (saved) {
         try { 
             const parsed = JSON.parse(saved);
@@ -186,7 +241,7 @@ function saveStateToStorage() {
         cashDenominations: state.cashDenominations,
         isLiveTracking: state.isLiveTracking
     };
-    localStorage.setItem('routelogix_tat_state_v19', JSON.stringify(persistData));
+    localStorage.setItem('routelogix_enterprise_state_v20', JSON.stringify(persistData));
 }
 
 function initAuthScreen() {
@@ -517,7 +572,9 @@ function guardarNuevaParada() {
     if (!name) { alert("Ingrese nombre"); return; }
     const center = state.map ? state.map.getCenter() : { lat: 4.6097, lng: -74.0817 };
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
-    activeRoute.stops.push({ id: 'stop-' + Date.now(), name, address: address || 'Mapa', lat: center.lat, lng: center.lng, status: 'pending', value, paymentMethod: 'cash', evidenceNotes: '' });
+    const newStop = { id: 'stop-' + Date.now(), name, address: address || 'Mapa', lat: center.lat, lng: center.lng, status: 'pending', value, paymentMethod: 'cash', evidenceNotes: '', photoData: null, signatureData: null };
+    activeRoute.stops.push(newStop);
+    enqueueOutboxAction('ADD_STOP', newStop);
     saveStateToStorage();
     if (modal) modal.classList.add('hidden');
     renderAll();
@@ -527,7 +584,9 @@ function abrirModalClienteExistente() {
     const submenu = document.getElementById('stop-submenu');
     if (submenu) submenu.classList.add('hidden');
     if (state.agenda.length === 0) { alert("Agenda vacía"); switchTab('agenda'); return; }
-    const clientName = prompt("Cliente a añadir:\n" + state.agenda.map(c => "- " + c.name).join('\n'));
+    const clientName = prompt("Cliente a añadir:
+" + state.agenda.map(c => "- " + c.name).join('
+'));
     if (!clientName) return;
     const client = state.agenda.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()));
     if (!client) { alert("No encontrado"); return; }
@@ -589,7 +648,19 @@ function renderMapMarkersAndPolyline() {
         let color = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
         let html = `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; color: #030712; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5);">${index + 1}</div>`;
         let marker = L.marker([stop.lat, stop.lng], { icon: L.divIcon({ html, iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(state.map);
-        marker.bindPopup(`<div class="p-1.5 text-xs bg-neutral-900 text-white rounded-xl"><strong>#${index+1} - ${stop.name}</strong><br>${stop.address}<br><button onclick="openEvidenceModal('${stop.id}')" class="mt-2 bg-cyan-500 text-neutral-950 font-bold px-3 py-1.5 rounded-lg shadow">Gestionar</button></div>`);
+        
+        // Popup con Deep Linking a Waze y Google Maps
+        const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lng}`;
+        const wazeUrl = `https://waze.com/ul?ll=${stop.lat},${stop.lng}&navigate=yes`;
+
+        marker.bindPopup(`<div class="p-2 text-xs bg-neutral-900 text-white rounded-xl space-y-2 max-w-[200px]">
+            <div><strong>#${index+1} - ${stop.name}</strong><br><span class="text-neutral-400 text-[10px]">${stop.address}</span></div>
+            <div class="flex gap-1.5 pt-1">
+                <a href="${gmapsUrl}" target="_blank" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-2 rounded-lg text-center text-[10px]">G. Maps</a>
+                <a href="${wazeUrl}" target="_blank" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-1.5 px-2 rounded-lg text-center text-[10px]">Waze</a>
+            </div>
+            <button onclick="openEvidenceModal('${stop.id}')" class="w-full mt-1 bg-emerald-500 text-neutral-950 font-black py-1.5 rounded-lg shadow text-center text-[10px]">Gestionar Entrega</button>
+        </div>`);
         state.markerList.push(marker);
     });
     if (latlngs.length > 0) state.polylineLayer = L.polyline(latlngs, { color: '#06b6d4', weight: 4, opacity: 0.9 }).addTo(state.map);
@@ -651,11 +722,65 @@ function openEvidenceModal(stopId) {
     const stopIdInput = document.getElementById('evidence-stop-id');
     const statusSelect = document.getElementById('evidence-status');
     const notesInput = document.getElementById('evidence-notes');
+    const photoName = document.getElementById('evidence-photo-name');
     const modal = document.getElementById('modal-evidence');
+    
     if (stopIdInput) stopIdInput.value = stop.id;
     if (statusSelect) statusSelect.value = stop.status === 'pending' ? 'delivered' : stop.status;
     if (notesInput) notesInput.value = stop.evidenceNotes || '';
+    if (photoName) photoName.innerText = stop.photoData ? "Foto adjunta ✓" : "Ninguna foto seleccionada";
+    currentPhotoBase64 = stop.photoData || null;
+
+    clearSignatureCanvas();
+    if (stop.signatureData && sigCtx) {
+        let img = new Image();
+        img.onload = () => sigCtx.drawImage(img, 0, 0);
+        img.src = stop.signatureData;
+    }
+
     if (modal) modal.classList.remove('hidden');
+}
+
+function previewEvidencePhoto(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        currentPhotoBase64 = e.target.result;
+        const photoName = document.getElementById('evidence-photo-name');
+        if (photoName) photoName.innerText = file.name + " (Adjunto ✓)";
+    };
+    reader.readAsDataURL(file);
+}
+
+function initSignatureCanvas() {
+    sigCanvas = document.getElementById('signature-canvas');
+    if (!sigCanvas) return;
+    sigCtx = sigCanvas.getContext('2d');
+    sigCtx.strokeStyle = '#06b6d4';
+    sigCtx.lineWidth = 2.5;
+    sigCtx.lineCap = 'round';
+
+    const getPos = (e) => {
+        const rect = sigCanvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
+    };
+
+    sigCanvas.addEventListener('mousedown', (e) => { isDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); });
+    sigCanvas.addEventListener('mousemove', (e) => { if (!isDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); });
+    sigCanvas.addEventListener('mouseup', () => { isDrawing = false; });
+    sigCanvas.addEventListener('mouseleave', () => { isDrawing = false; });
+
+    sigCanvas.addEventListener('touchstart', (e) => { isDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); e.preventDefault(); });
+    sigCanvas.addEventListener('touchmove', (e) => { if (!isDrawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); e.preventDefault(); });
+    sigCanvas.addEventListener('touchend', () => { isDrawing = false; });
+}
+
+function clearSignatureCanvas() {
+    if (!sigCtx || !sigCanvas) return;
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
 }
 
 function saveEvidence() {
@@ -667,9 +792,18 @@ function saveEvidence() {
     const stopId = stopIdInput.value;
     const status = statusSelect ? statusSelect.value : 'delivered';
     const notes = notesInput ? notesInput.value : '';
+    const signatureData = sigCanvas ? sigCanvas.toDataURL() : null;
+
     for (let r of state.routes) {
         let stop = r.stops.find(s => s.id === stopId);
-        if (stop) { stop.status = status; stop.evidenceNotes = notes; break; }
+        if (stop) { 
+            stop.status = status; 
+            stop.evidenceNotes = notes; 
+            stop.photoData = currentPhotoBase64;
+            stop.signatureData = signatureData;
+            enqueueOutboxAction('UPDATE_STOP', stop);
+            break; 
+        }
     }
     saveStateToStorage();
     if (modal) modal.classList.add('hidden');
@@ -680,8 +814,15 @@ function renderAgendaList() {
     const container = document.getElementById('lista-agenda');
     if (!container) return;
     container.innerHTML = state.agenda.map(c => `
-        <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex justify-between items-center text-xs">
-            <div><strong class="text-white text-sm">${c.name}</strong><p class="text-[11px] text-neutral-400 mt-0.5">${c.address}</p></div>
+        <div class="bg-neutral-900 border ${c.debt > c.creditLimit ? 'border-rose-500/60 shadow-lg shadow-rose-500/10' : 'border-neutral-800'} rounded-2xl p-4 flex justify-between items-center text-xs">
+            <div>
+                <strong class="text-white text-sm">${c.name}</strong>
+                <p class="text-[11px] text-neutral-400 mt-0.5">${c.address} • Tel: ${c.phone}</p>
+                <div class="flex gap-2 mt-2">
+                    <span class="px-2 py-0.5 rounded-lg bg-neutral-950 text-rose-400 font-bold border border-neutral-800">Deuda: $${(c.debt||0).toLocaleString()}</span>
+                    <span class="px-2 py-0.5 rounded-lg bg-neutral-950 text-cyan-400 font-bold border border-neutral-800">Cupo: $${(c.creditLimit||0).toLocaleString()}</span>
+                </div>
+            </div>
             <button onclick="addClientToActiveRoute('${c.id}')" class="bg-cyan-500 text-neutral-950 font-black px-3.5 py-2 rounded-xl shadow">+</button>
         </div>
     `).join('');
@@ -696,16 +837,22 @@ function handleClientSubmitDirect() {
     const nameInput = document.getElementById('client-name');
     const addressInput = document.getElementById('client-address');
     const phoneInput = document.getElementById('client-phone');
+    const debtInput = document.getElementById('client-debt');
+    const limitInput = document.getElementById('client-limit');
     const obsInput = document.getElementById('client-obs');
     const modal = document.getElementById('modal-client');
 
     const name = nameInput ? nameInput.value.trim() : '';
     const address = addressInput ? addressInput.value.trim() : '';
     const phone = phoneInput ? phoneInput.value.trim() : '';
+    const debt = debtInput ? parseFloat(debtInput.value) || 0 : 0;
+    const creditLimit = limitInput ? parseFloat(limitInput.value) || 300000 : 300000;
     const obs = obsInput ? obsInput.value.trim() : '';
 
     if (!name || !address) { alert("Ingrese nombre y dirección"); return; }
-    state.agenda.push({ id: 'c-' + Date.now(), name, address, phone, obs });
+    const newClient = { id: 'c-' + Date.now(), name, address, phone, debt, creditLimit, obs };
+    state.agenda.push(newClient);
+    enqueueOutboxAction('ADD_CLIENT', newClient);
     saveStateToStorage();
     if (modal) modal.classList.add('hidden');
     renderAll();
@@ -714,16 +861,17 @@ function handleClientSubmitDirect() {
 function addClientToActiveRoute(id) {
     let c = state.agenda.find(x => x.id === id);
     if (!c) return;
+    if (c.debt > c.creditLimit) {
+        if (!confirm(`⚠️ ALERTA DE CRÉDITO:
+
+El cliente ${c.name} excede su cupo de crédito (Deuda: $${c.debt.toLocaleString()} / Cupo: $${c.creditLimit.toLocaleString()}).
+
+¿Desea añadirlo a la ruta de todas formas?`)) return;
+    }
     let r = state.routes.find(x => x.active) || state.routes[0];
     r.stops.push({ id: 's-' + Date.now(), name: c.name, address: c.address, lat: 4.6097 + (Math.random()-0.5)*0.02, lng: -74.0817 + (Math.random()-0.5)*0.02, status: 'pending', value: 150000 });
     saveStateToStorage();
     renderAll();
-}
-
-function setPaymentMode(mode) {
-    state.paymentMode = mode;
-    saveStateToStorage();
-    renderFinances();
 }
 
 function initDenominationsUI() {
@@ -808,22 +956,33 @@ function renderFinances() {
     let counterDisplay = document.getElementById('counter-total-display');
     if (counterDisplay) counterDisplay.innerText = '$' + cash.toLocaleString();
 
-    let facturado = 0, transfer = 0;
-    state.routes.forEach(r => r.stops.forEach(s => { if (s.status === 'delivered') { facturado += s.value; if (s.paymentMethod === 'transfer') transfer += s.value; } }));
+    let facturado = 0, transfer = 0, expectedCash = 0;
+    state.routes.forEach(r => r.stops.forEach(s => { 
+        if (s.status === 'delivered') { 
+            facturado += s.value; 
+            if (s.paymentMethod === 'transfer') transfer += s.value; 
+            else expectedCash += s.value; 
+        } 
+    }));
+    
     let gastos = state.expenses.reduce((acc, e) => acc + e.amount, 0);
+    let diff = cash - (expectedCash - gastos);
     let neto = facturado - gastos;
 
     const sf = document.getElementById('summary-facturado');
     const sfi = document.getElementById('summary-fisico');
     const st = document.getElementById('summary-transfer');
-    const sg = document.getElementById('summary-gastos');
+    const sdiff = document.getElementById('summary-diff');
     const snt = document.getElementById('summary-neto-total');
     const ffb = document.getElementById('final-balance-badge');
 
     if (sf) sf.innerText = '$' + facturado.toLocaleString();
     if (sfi) sfi.innerText = '$' + cash.toLocaleString();
     if (st) st.innerText = '$' + transfer.toLocaleString();
-    if (sg) sg.innerText = '$' + gastos.toLocaleString();
+    if (sdiff) {
+        sdiff.innerText = (diff === 0 ? 'Exacto ($0)' : (diff >  0 ? `Sobrante: +$${diff.toLocaleString()}` : `Faltante: -$${Math.abs(diff).toLocaleString()}`));
+        sdiff.className = diff === 0 ? "text-emerald-400 text-sm font-black" : (diff > 0 ? "text-cyan-400 text-sm font-black" : "text-rose-400 text-sm font-black");
+    }
     if (snt) snt.innerText = '$' + neto.toLocaleString();
     if (ffb) ffb.innerText = '$' + neto.toLocaleString() + ' Neto';
 }
@@ -855,9 +1014,9 @@ function importarArchivoRoutin(event) {
             if (data.agenda) state.agenda = data.agenda;
             saveStateToStorage();
             renderAll();
-            alert("¡Rutas y Agenda importadas correctamente!");
+            alert("¡Rutas y Cartera importadas correctamente!");
         } catch(err) {
-            alert("Error al parsear el archivo de ruta.");
+            alert("Error al parsear el archivo.");
         }
     };
     reader.readAsText(file);

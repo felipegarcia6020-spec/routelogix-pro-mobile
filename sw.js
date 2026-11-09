@@ -1,4 +1,4 @@
-const CACHE_NAME = 'routelogix-pro-v19';
+const CACHE_NAME = 'routelogix-pro-v20';
 const coreAssets = [
   './',
   './index.html',
@@ -12,9 +12,7 @@ const coreAssets = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(coreAssets).catch(err => {
-        console.warn('Algunos recursos estaticos no pudieron precargarse:', err);
-      });
+      return cache.addAll(coreAssets).catch(err => {});
     })
   );
   self.skipWaiting();
