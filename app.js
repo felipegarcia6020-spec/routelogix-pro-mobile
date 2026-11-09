@@ -1,987 +1,982 @@
-/* RouteLogix Pro & Routin Advanced Mobile App Logic */
-let map, gpsMarker;
-let watchId = null;
-let currentTab = 'map';
-let selectedRouteId = 1;
-let currentMapStyle = 'standard';
-let tileLayers = {};
 
-let currentUser = {
-    name: "Carlos Pérez",
-    email: "admin@routelogix.com",
-    photo: "",
-    token: "session_active"
-};
-
-let appData = {
-    users: [
-        { name: "Carlos Pérez", email: "admin@routelogix.com", pass: "12345", photo: "" }
-    ],
+// Estado global de RouteLogix Pro TaT con GPS en vivo y marcador de transporte
+let state = {
+    user: null,
+    transportMode: 'car', // 'walk', 'bike', 'moto', 'car', 'truck'
+    currentTab: 'map',
+    mapTileStyle: 'standard',
+    paymentMode: 'cash',
     routes: [
         {
-            id: 1,
-            title: "Ruta Centro - Bogotá",
+            id: 'ruta-1',
+            name: 'Ruta Principal TaT',
             active: true,
-            distanceKm: 12.4,
+            transportMode: 'car',
             stops: [
-                { id: 101, title: "Supermercado Central", address: "Carrera 7 # 12", lat: 4.5981, lng: -74.0760, value: 120000, timeEst: "10 mins", status: "pending", paymentMethod: "cash", evidencePhoto: "", evidenceNotes: "" },
-                { id: 102, title: "Tienda La Esperanza", address: "Calle 26 # 14", lat: 4.6105, lng: -74.0705, value: 85000, timeEst: "15 mins", status: "pending", paymentMethod: "cash", evidencePhoto: "", evidenceNotes: "" },
-                { id: 103, title: "Minimarket El Sol", address: "Carrera 13 # 63", lat: 4.6500, lng: -74.0600, value: 210000, timeEst: "22 mins", status: "pending", paymentMethod: "transfer", evidencePhoto: "", evidenceNotes: "" }
+                { id: 's1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', lat: 4.6097, lng: -74.0817, status: 'pending', value: 125000, paymentMethod: 'cash', evidencePhoto: null, evidenceNotes: '' },
+                { id: 's2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', lat: 4.6150, lng: -74.0750, status: 'pending', value: 310000, paymentMethod: 'cash', evidencePhoto: null, evidenceNotes: '' },
+                { id: 's3', name: 'Minimercado Central', address: 'Calle 19 # 3-15', lat: 4.6030, lng: -74.0700, status: 'pending', value: 180000, paymentMethod: 'cash', evidencePhoto: null, evidenceNotes: '' }
             ]
         }
     ],
     agenda: [
-        { id: 1, nombre: "Supermercado Central", direccion: "Carrera 7 # 12", telefono: "3104567890", foto: "", observacion: "Cobrar en la mañana" },
-        { id: 2, nombre: "Tienda La Esperanza", direccion: "Calle 26 # 14", telefono: "3209876543", foto: "", observacion: "Cliente puntual" }
+        { id: 'c1', name: 'Tienda El Progreso', address: 'Calle 10 # 5-20', phone: '3101234567', photo: null, obs: 'Cliente prioritario' },
+        { id: 'c2', name: 'Granero Doña Rosa', address: 'Carrera 7 # 12-40', phone: '3209876543', photo: null, obs: 'Pide factura electrónica' },
+        { id: 'c3', name: 'Minimercado Central', address: 'Calle 19 # 3-15', phone: '3157891234', photo: null, obs: 'Recibe solo en efectivo' }
     ],
-    expenses: [
-        { id: 1, concept: 'Gasolina moto', amount: 35000 }
-    ],
-    cashCounts: { 100000: 0, 50000: 1, 20000: 2, 10000: 3, 5000: 2, 2000: 1, 1000: 0, 500: 0, 200: 0, 100: 0 },
-    paymentMode: 'cash'
+    expenses: [],
+    cashDenominations: {
+        '100000': 0, '50000': 0, '20000': 0, '10000': 0, '5000': 0, '2000': 0, '1000': 0, 'coins': 0
+    },
+    viewingRouteId: null,
+    map: null,
+    markerList: [],
+    polylineLayer: null,
+    gpsMarker: null,
+    gpsWatchId: null,
+    isLiveTracking: true,
+    lastPosition: null,
+    lastTimestamp: null,
+    currentSpeedKmH: 0
 };
 
-const denominations = [
-    { value: 100000, label: '$100.000', type: 'billete' },
-    { value: 50000, label: '$50.000', type: 'billete' },
-    { value: 20000, label: '$20.000', type: 'billete' },
-    { value: 10000, label: '$10.000', type: 'billete' },
-    { value: 5000, label: '$5.000', type: 'billete' },
-    { value: 2000, label: '$2.000', type: 'billete' },
-    { value: 1000, label: '$1.000', type: 'billete' },
-    { value: 500, label: '$500', type: 'moneda' },
-    { value: 200, label: '$200', type: 'moneda' },
-    { value: 100, label: '$100', type: 'moneda' }
-];
+// Velocidades promedio en km/h según medio de transporte
+const TRANSPORT_SPEEDS = {
+    walk: 5,
+    bike: 15,
+    moto: 35,
+    car: 30,
+    truck: 20
+};
 
-window.onload = function() {
-    loadLocalStorage();
-    checkAuthSession();
+// Emojis e iconos para el marcador GPS en vivo según el transporte
+const TRANSPORT_ICONS = {
+    walk: { emoji: '🚶', bg: '#3b82f6', label: 'Caminando' },
+    bike: { emoji: '🚲', bg: '#10b981', label: 'Bicicleta' },
+    moto: { emoji: '🏍️', bg: '#f59e0b', label: 'Moto' },
+    car: { emoji: '🚗', bg: '#6366f1', label: 'Carro' },
+    truck: { emoji: '🚚', bg: '#f43f5e', label: 'Camión' }
+};
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', () => {
+    loadStateFromStorage();
+    initAuthScreen();
+    lucide.createIcons();
     initMap();
-    initGPSRealTime();
-    renderRoutesList();
-    renderActiveRouteMetrics();
-    renderRouteStopsManualList();
-    renderAgendaCards();
-    renderDenominations();
-    renderExpenses();
-    updateFinancialCalculations();
-    updateOrderStatusCounts();
+    renderAll();
+    initDenominationsUI();
+    startLiveGPSWatcher();
+});
 
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(()=>{});
-    }
-};
-
-/* MANEJO DE IMÁGENES DESDE CÁMARA O GALERÍA (BASE64) */
-function convertImageFileToBase64(fileInputEvent, callback) {
-    const file = fileInputEvent.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        callback(e.target.result);
-    };
-    reader.readAsDataURL(file);
-}
-
-function handleDriverPhotoSelect(e) {
-    convertImageFileToBase64(e, (base64) => {
-        document.getElementById('reg-photo-base64').value = base64;
-    });
-}
-
-function handleEditDriverPhotoSelect(e) {
-    convertImageFileToBase64(e, (base64) => {
-        document.getElementById('edit-driver-photo-base64').value = base64;
-    });
-}
-
-function handleClientPhotoSelect(e) {
-    convertImageFileToBase64(e, (base64) => {
-        document.getElementById('client-photo-base64').value = base64;
-    });
-}
-
-function handleEvidencePhotoSelect(e) {
-    convertImageFileToBase64(e, (base64) => {
-        document.getElementById('evidence-photo-base64').value = base64;
-        const preview = document.getElementById('evidence-preview-container');
-        const img = document.getElementById('evidence-preview-img');
-        img.src = base64;
-        preview.classList.remove('hidden');
-    });
-}
-
-/* AUTH Y SESIÓN */
-function checkAuthSession() {
-    const session = localStorage.getItem('routelogix_session');
-    if(session) {
+function loadStateFromStorage() {
+    const saved = localStorage.getItem('routelogix_tat_state_v4');
+    if (saved) {
         try {
-            currentUser = JSON.parse(session);
-            document.getElementById('auth-screen').classList.add('hidden');
-            updateDriverHeader();
+            const parsed = JSON.parse(saved);
+            state = { ...state, ...parsed };
         } catch(e) {}
     }
 }
 
+function saveStateToStorage() {
+    localStorage.setItem('routelogix_tat_state_v4', JSON.stringify(state));
+}
+
+// Autenticación
+function initAuthScreen() {
+    const authScreen = document.getElementById('auth-screen');
+    if (state.user) {
+        authScreen.classList.add('hidden');
+        updateDriverDisplay();
+    } else {
+        authScreen.classList.remove('hidden');
+    }
+}
+
 function switchAuthTab(tab) {
-    const isLogin = tab === 'login';
-    document.getElementById('form-login').classList.toggle('hidden', !isLogin);
-    document.getElementById('form-register').classList.toggle('hidden', isLogin);
-    document.getElementById('auth-tab-login').className = isLogin ? 'flex-1 py-2 rounded-lg bg-blue-600 text-white transition' : 'flex-1 py-2 rounded-lg text-neutral-400 transition';
-    document.getElementById('auth-tab-register').className = !isLogin ? 'flex-1 py-2 rounded-lg bg-emerald-600 text-white transition' : 'flex-1 py-2 rounded-lg text-neutral-400 transition';
+    const btnLogin = document.getElementById('auth-tab-login');
+    const btnReg = document.getElementById('auth-tab-register');
+    const formLogin = document.getElementById('form-login');
+    const formReg = document.getElementById('form-register');
+    if (tab === 'login') {
+        btnLogin.className = "flex-1 py-2 rounded-lg bg-blue-600 text-white transition";
+        btnReg.className = "flex-1 py-2 rounded-lg text-neutral-400 transition";
+        formLogin.classList.remove('hidden');
+        formReg.classList.add('hidden');
+    } else {
+        btnReg.className = "flex-1 py-2 rounded-lg bg-emerald-600 text-white transition";
+        btnLogin.className = "flex-1 py-2 rounded-lg text-neutral-400 transition";
+        formReg.classList.remove('hidden');
+        formLogin.classList.add('hidden');
+    }
 }
 
 function handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('login-email').value.trim();
-    const pass = document.getElementById('login-pass').value.trim();
-    const found = appData.users.find(u => u.email === email && u.pass === pass);
-    if(found || email === 'admin@routelogix.com') {
-        currentUser = found || { name: email.split('@')[0], email, photo: "" };
-        localStorage.setItem('routelogix_session', JSON.stringify(currentUser));
-        document.getElementById('auth-screen').classList.add('hidden');
-        updateDriverHeader();
-    } else {
-        alert("Credenciales incorrectas.");
-    }
+    const email = document.getElementById('login-email').value;
+    state.user = { name: email.split('@')[0], email: email, photo: null };
+    saveStateToStorage();
+    document.getElementById('auth-screen').classList.add('hidden');
+    updateDriverDisplay();
+    renderAll();
 }
 
 function handleRegister(e) {
     e.preventDefault();
-    const name = document.getElementById('reg-name').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
-    const pass = document.getElementById('reg-pass').value.trim();
-    const photo = document.getElementById('reg-photo-base64').value.trim();
-
-    if(appData.users.some(u => u.email === email)) {
-        alert("El correo ya está registrado.");
-        return;
-    }
-    const newUser = { name, email, pass, photo };
-    appData.users.push(newUser);
-    currentUser = newUser;
-    saveLocalStorage();
-    localStorage.setItem('routelogix_session', JSON.stringify(currentUser));
+    const name = document.getElementById('reg-name').value;
+    const email = document.getElementById('reg-email').value;
+    const photo = document.getElementById('reg-photo-base64').value || null;
+    state.user = { name, email, photo };
+    saveStateToStorage();
     document.getElementById('auth-screen').classList.add('hidden');
-    updateDriverHeader();
-    alert("¡Cuenta creada con éxito!");
+    updateDriverDisplay();
+    renderAll();
 }
 
 function logoutSession() {
-    localStorage.removeItem('routelogix_session');
+    state.user = null;
+    saveStateToStorage();
     document.getElementById('auth-screen').classList.remove('hidden');
 }
 
-function updateDriverHeader() {
-    const name = currentUser.name || "Conductor";
-    document.getElementById('driver-name-display').innerText = name;
-    const container = document.getElementById('driver-avatar-container');
-    if(currentUser.photo) {
-        container.innerHTML = `<img src="${currentUser.photo}" class="w-full h-full object-cover">`;
-    } else {
-        const initials = name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
-        container.innerHTML = `<span id="driver-initials">${initials || 'CP'}</span>`;
+function handleDriverPhotoSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        document.getElementById('reg-photo-base64').value = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function updateDriverDisplay() {
+    if (!state.user) return;
+    document.getElementById('driver-name-display').innerText = state.user.name;
+    const initials = state.user.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+    document.getElementById('driver-initials').innerText = initials;
+    if (state.user.photo) {
+        document.getElementById('driver-avatar-container').innerHTML = `<img src="${state.user.photo}" class="w-full h-full object-cover">`;
     }
 }
 
 function openDriverEditModal() {
-    document.getElementById('edit-driver-name').value = currentUser.name || "";
-    document.getElementById('edit-driver-photo-base64').value = currentUser.photo || "";
+    if (!state.user) return;
+    document.getElementById('edit-driver-name').value = state.user.name;
+    document.getElementById('edit-driver-photo-base64').value = state.user.photo || '';
     document.getElementById('modal-driver').classList.remove('hidden');
 }
 
+function handleEditDriverPhotoSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        document.getElementById('edit-driver-photo-base64').value = evt.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 function saveDriverProfile() {
-    currentUser.name = document.getElementById('edit-driver-name').value.trim() || currentUser.name;
-    const newPhoto = document.getElementById('edit-driver-photo-base64').value.trim();
-    if(newPhoto) currentUser.photo = newPhoto;
-    localStorage.setItem('routelogix_session', JSON.stringify(currentUser));
-    updateDriverHeader();
+    const name = document.getElementById('edit-driver-name').value;
+    const photo = document.getElementById('edit-driver-photo-base64').value;
+    if (name) state.user.name = name;
+    if (photo) state.user.photo = photo;
+    saveStateToStorage();
     document.getElementById('modal-driver').classList.add('hidden');
-    alert("¡Perfil de conductor actualizado!");
+    updateDriverDisplay();
 }
 
-/* MAPA Y ESTILOS */
-function initMap() {
-    map = L.map('map', { zoomControl: false }).setView([4.6097, -74.0817], 13);
-    
-    tileLayers['standard'] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
-    tileLayers['dark'] = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
-    tileLayers['satellite'] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
-
-    tileLayers['standard'].addTo(map);
-    
-    // Zoom control positioned at topright to avoid overlapping bottom buttons
-    L.control.zoom({ position: 'topright' }).addTo(map);
-
-    renderMapStops();
-}
-
-function setMapTileStyle(style) {
-    currentMapStyle = style;
-    ['standard', 'dark', 'satellite'].forEach(st => {
-        if(tileLayers[st]) map.removeLayer(tileLayers[st]);
-        const btn = document.getElementById(`style-${st}`);
-        if(btn) {
-            btn.className = st === style ? 'px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium' : 'px-2.5 py-1 rounded-lg text-neutral-300 font-medium';
+// Navegación de pestañas
+function switchTab(tabId) {
+    state.currentTab = tabId;
+    ['map', 'routes', 'agenda', 'finances'].forEach(t => {
+        const sec = document.getElementById(`view-${t}`);
+        const btn = document.getElementById(`nav-btn-${t}`);
+        if (t === tabId) {
+            sec.classList.remove('hidden');
+            btn.className = "flex flex-col items-center justify-center text-blue-500 transition";
+        } else {
+            sec.classList.add('hidden');
+            btn.className = "flex flex-col items-center justify-center text-neutral-400 hover:text-white transition";
         }
     });
-    if(tileLayers[style]) tileLayers[style].addTo(map);
-}
-
-function searchMapAddress() {
-    const query = document.getElementById('map-search-input').value.trim();
-    if(!query) return;
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
-        .then(res => res.json())
-        .then(data => {
-            if(data && data.length > 0) {
-                map.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 16);
-            } else {
-                alert("Dirección no encontrada.");
-            }
-        })
-        .catch(() => alert("Error en la búsqueda."));
-}
-
-function initGPSRealTime() {
-    if ("geolocation" in navigator) {
-        watchId = navigator.geolocation.watchPosition(
-            (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                if(!gpsMarker) {
-                    const gpsIcon = L.divIcon({
-                        className: 'gps-dot',
-                        html: '<div style="width:20px;height:20px;background:#3b82f6;border:3px solid #ffffff;border-radius:50%;box-shadow:0 0 14px #38bdf8;"></div>',
-                        iconSize: [20, 20]
-                    });
-                    gpsMarker = L.marker([lat, lng], {icon: gpsIcon}).addTo(map).bindPopup("Tu ubicación GPS");
-                } else {
-                    gpsMarker.setLatLng([lat, lng]);
-                }
-            },
-            () => {},
-            { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-        );
+    if (tabId === 'map' && state.map) {
+        setTimeout(() => state.map.invalidateSize(), 200);
     }
+    lucide.createIcons();
+}
+
+// Mapa Leaflet
+function initMap() {
+    state.map = L.map('map', { zoomControl: false }).setView([4.6097, -74.0817], 14);
+    setMapTileStyle('standard', false);
+    setTimeout(() => state.map.invalidateSize(), 300);
+}
+
+const tileLayers = {
+    standard: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }),
+    dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }),
+    satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
+};
+
+let currentTileLayerObj = null;
+function setMapTileStyle(styleName, redraw = true) {
+    state.mapTileStyle = styleName;
+    ['standard', 'dark', 'satellite'].forEach(s => {
+        const btn = document.getElementById(`style-${s}`);
+        if (btn) {
+            btn.className = s === styleName ? "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium" : "px-2.5 py-1 rounded-lg text-neutral-300 font-medium";
+        }
+    });
+    if (currentTileLayerObj) {
+        state.map.removeLayer(currentTileLayerObj);
+    }
+    currentTileLayerObj = tileLayers[styleName];
+    currentTileLayerObj.addTo(state.map);
+}
+
+// GPS Tracking y Marcador en Tiempo Real con Velocidad
+function startLiveGPSWatcher() {
+    if (!navigator.geolocation) return;
+    
+    state.gpsWatchId = navigator.geolocation.watchPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const speedMps = pos.coords.speed; // metros por segundo si está disponible
+        
+        const now = Date.now();
+        let calculatedSpeed = 0;
+
+        if (speedMps !== null && speedMps >= 0) {
+            calculatedSpeed = speedMps * 3.6; // Convertir m/s a km/h
+        } else if (state.lastPosition && state.lastTimestamp) {
+            // Calcular velocidad por distancia y tiempo transcurrido
+            const R = 6371; // Radio tierra en km
+            const dLat = (lat - state.lastPosition.lat) * Math.PI / 180;
+            const dLon = (lng - state.lastPosition.lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(state.lastPosition.lat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distKm = R * c;
+            const hours = (now - state.lastTimestamp) / 3600000;
+            if (hours > 0) {
+                calculatedSpeed = distKm / hours;
+            }
+        }
+
+        state.lastPosition = { lat, lng };
+        state.lastTimestamp = now;
+        state.currentSpeedKmH = calculatedSpeed;
+
+        updateLiveGPSMarker(lat, lng, calculatedSpeed);
+
+        if (state.isLiveTracking && state.map && state.currentTab === 'map') {
+            state.map.setView([lat, lng], state.map.getZoom());
+        }
+    }, err => {
+        console.warn("GPS error o denegado:", err.message);
+    }, {
+        enableHighAccuracy: true,
+        maximumAge: 2000,
+        timeout: 10000
+    });
+}
+
+function updateLiveGPSMarker(lat, lng, speed) {
+    if (!state.map) return;
+    
+    const activeRoute = state.routes.find(r => r.active) || state.routes[0];
+    const mode = activeRoute ? (activeRoute.transportMode || 'car') : 'car';
+    const cfg = TRANSPORT_ICONS[mode] || TRANSPORT_ICONS['car'];
+
+    // Actualizar widget de velocidad en pantalla
+    const speedDisplay = document.getElementById('live-speed-display');
+    const iconIndicator = document.getElementById('transport-icon-indicator');
+    if (speedDisplay) speedDisplay.innerText = speed.toFixed(1) + ' km/h';
+    if (iconIndicator) iconIndicator.innerText = cfg.emoji;
+
+    // Crear o actualizar marcador Leaflet con el icono animado del medio de transporte
+    const markerHtml = `
+        <div style="background-color: ${cfg.bg}; width: 38px; height: 38px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.5); animation: pulse 2s infinite;">
+            ${cfg.emoji}
+        </div>
+    `;
+    const customIcon = L.divIcon({
+        html: markerHtml,
+        className: 'gps-transport-marker',
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
+    });
+
+    if (state.gpsMarker) {
+        state.gpsMarker.setLatLng([lat, lng]);
+        state.gpsMarker.setIcon(customIcon);
+    } else {
+        state.gpsMarker = L.marker([lat, lng], { icon: customIcon }).addTo(state.map);
+        state.gpsMarker.bindPopup(`<b>Mi Posición GPS en Vivo</b><br>Transporte: ${cfg.label}<br>Velocidad: ${speed.toFixed(1)} km/h`);
+    }
+}
+
+function toggleTrackingLive() {
+    state.isLiveTracking = !state.isLiveTracking;
+    const btn = document.getElementById('tracking-toggle-btn');
+    if (state.isLiveTracking) {
+        btn.className = "absolute bottom-20 right-4 z-20 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xl font-bold text-xs flex items-center gap-1.5 active:scale-95 transition";
+        btn.innerHTML = '<i data-lucide="radio" class="w-4 h-4 animate-pulse"></i> <span>GPS Vivo: ON</span>';
+        centrarGPS();
+    } else {
+        btn.className = "absolute bottom-20 right-4 z-20 px-3.5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl shadow-xl font-bold text-xs flex items-center gap-1.5 active:scale-95 transition";
+        btn.innerHTML = '<i data-lucide="radio-off" class="w-4 h-4"></i> <span>GPS Vivo: OFF</span>';
+    }
+    lucide.createIcons();
 }
 
 function centrarGPS() {
-    if(gpsMarker) map.setView(gpsMarker.getLatLng(), 16);
-    else alert("Buscando señal GPS...");
-}
-
-let mapMarkers = [];
-function renderMapStops() {
-    if(!map) return;
-    mapMarkers.forEach(m => map.removeLayer(m));
-    mapMarkers = [];
-
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    if(!activeRoute) return;
-
-    const latlngs = [];
-    activeRoute.stops.forEach((stop, index) => {
-        if(stop.lat && stop.lng) {
-            latlngs.push([stop.lat, stop.lng]);
-            let badgeClass = "bg-blue-600";
-            if(stop.status === 'delivered') badgeClass = "bg-emerald-600";
-            else if(stop.status === 'rejected') badgeClass = "bg-rose-600";
-
-            const icon = L.divIcon({
-                className: 'custom-icon',
-                html: `<div class="custom-map-badge ${badgeClass}" style="width:28px;height:28px;">${index+1}</div>`,
-                iconSize: [28, 28],
-                iconAnchor: [14, 14]
-            });
-
-            const paymentLabel = stop.paymentMethod === 'transfer' ? 'Transferencia' : 'Efectivo';
-            const marker = L.marker([stop.lat, stop.lng], {icon}).addTo(map)
-                .bindPopup(`<b>${index+1}. ${stop.title}</b><br>Dir: ${stop.address}<br>Factura: $${stop.value.toLocaleString()}<br>Pago: ${paymentLabel}<br>Estado: <span style="font-weight:bold;color:${stop.status==='delivered'?'#34d399':stop.status==='rejected'?'#f43f5e':'#38bdf8'}">${stop.status.toUpperCase()}</span><br>⏱️ Est: ${stop.timeEst || '15 mins'}`);
-            mapMarkers.push(marker);
-        }
-    });
-
-    if(latlngs.length > 1) {
-        const polyline = L.polyline(latlngs, {color: '#3b82f6', weight: 4, opacity: 0.8});
-        polyline.addTo(map);
-        mapMarkers.push(polyline);
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            state.map.setView([lat, lng], 16);
+        }, () => alert("No se pudo obtener la ubicación GPS"));
     }
 }
 
-/* OPTIMIZACIÓN INTELIGENTE DE RUTA */
-function optimizarRutaInteligente() {
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    if(!activeRoute || activeRoute.stops.length <= 2) {
-        alert("Se necesitan al menos 3 paradas para optimizar.");
-        return;
-    }
-
-    let unvisited = [...activeRoute.stops];
-    let optimized = [unvisited.shift()];
-
-    while(unvisited.length > 0) {
-        let curr = optimized[optimized.length - 1];
-        let bestIdx = 0;
-        let minScore = Infinity;
-
-        unvisited.forEach((p, idx) => {
-            const dist = Math.hypot(p.lat - curr.lat, p.lng - curr.lng);
-            const trafficFactor = 1.0 + ((idx % 3) * 0.15); 
-            const score = dist * trafficFactor;
-
-            if(score < minScore) {
-                minScore = score;
-                bestIdx = idx;
-            }
-        });
-        optimized.push(unvisited.splice(bestIdx, 1)[0]);
-    }
-
-    activeRoute.stops = optimized;
-    activeRoute.distanceKm = Math.max(4.2, (activeRoute.stops.length * 3.1 * 0.85)).toFixed(1);
-    saveLocalStorage();
-    renderMapStops();
-    renderRoutesList();
-    renderActiveRouteMetrics();
-    renderRouteStopsManualList();
-    alert("¡Ruta optimizada con IA TaT! (Menor distancia y tráfico reducido)");
-}
-
-/* REORGANIZACIÓN MANUAL DE RUTA */
-function moveStopOrder(routeId, stopIndex, direction) {
-    const route = appData.routes.find(r => r.id === routeId);
-    if(!route) return;
-
-    const newIdx = stopIndex + direction;
-    if(newIdx < 0 || newIdx >= route.stops.length) return;
-
-    const temp = route.stops[stopIndex];
-    route.stops[stopIndex] = route.stops[newIdx];
-    route.stops[newIdx] = temp;
-
-    saveLocalStorage();
-    renderMapStops();
-    renderRouteStopsManualList();
-    renderActiveRouteMetrics();
-}
-
-/* GESTIÓN DE PARADAS Y EVIDENCIAS CON ACCESO RÁPIDO */
-function openEvidenceModal(stopId, initialStatus = 'delivered') {
-    document.getElementById('evidence-stop-id').value = stopId;
-    document.getElementById('evidence-status').value = initialStatus;
-    document.getElementById('evidence-photo-file').value = '';
-    document.getElementById('evidence-photo-base64').value = '';
-    document.getElementById('evidence-notes').value = '';
-    document.getElementById('evidence-preview-container').classList.add('hidden');
-    
-    toggleEvidenceFields();
-    document.getElementById('modal-evidence').classList.remove('hidden');
-}
-
-function toggleEvidenceFields() {
-    const status = document.getElementById('evidence-status').value;
-    const paymentContainer = document.getElementById('container-payment-method');
-    const notesLabel = document.getElementById('evidence-notes-label');
-    
-    if(status === 'rejected') {
-        paymentContainer.classList.add('hidden');
-        notesLabel.innerText = "Motivo del Rechazo (Obligatorio)";
-    } else {
-        paymentContainer.classList.remove('hidden');
-        notesLabel.innerText = "Observaciones de Entrega";
-    }
-}
-
-/* ACCESO RÁPIDO 1-TAP PARA MARCAR ENTREGADO O RECHAZADO DIRECTAMENTE */
-function quickMarkStop(stopId, status) {
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    const stop = activeRoute.stops.find(s => s.id === stopId);
-    if(stop) {
-        stop.status = status;
-        if(status === 'delivered') {
-            stop.paymentMethod = appData.paymentMode || 'cash';
-        }
-        saveLocalStorage();
-        renderMapStops();
-        renderRouteStopsManualList();
-        updateOrderStatusCounts();
-        updateFinancialCalculations();
-        
-        if(status === 'delivered') {
-            alert(`✅ ${stop.title} marcado como ENTREGADO.`);
+async function searchMapAddress() {
+    const q = document.getElementById('map-search-input').value;
+    if (!q) return;
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lng = parseFloat(data[0].lon);
+            state.map.setView([lat, lng], 16);
         } else {
-            alert(`❌ ${stop.title} marcado como RECHAZADO.`);
+            alert("No se encontró la dirección");
         }
+    } catch(e) {
+        alert("Error al buscar dirección");
     }
 }
 
-function saveEvidence() {
-    const stopId = parseInt(document.getElementById('evidence-stop-id').value);
-    const status = document.getElementById('evidence-status').value;
-    const paymentMethod = document.getElementById('evidence-payment-method').value;
-    const photoBase64 = document.getElementById('evidence-photo-base64').value.trim();
-    const notes = document.getElementById('evidence-notes').value.trim();
-
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    const stop = activeRoute.stops.find(s => s.id === stopId);
-    if(stop) {
-        stop.status = status;
-        stop.paymentMethod = status === 'delivered' ? paymentMethod : stop.paymentMethod;
-        stop.evidencePhoto = photoBase64;
-        stop.evidenceNotes = notes;
-        
-        saveLocalStorage();
-        renderMapStops();
-        renderRouteStopsManualList();
-        updateOrderStatusCounts();
-        updateFinancialCalculations();
-        document.getElementById('modal-evidence').classList.add('hidden');
-        alert("¡Entrega y evidencia registradas con éxito!");
-    }
-}
-
-function updateOrderStatusCounts() {
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    if(!activeRoute) return;
-
-    let pending = 0, delivered = 0, rejected = 0;
-    activeRoute.stops.forEach(s => {
-        if(s.status === 'delivered') delivered++;
-        else if(s.status === 'rejected') rejected++;
-        else pending++;
-    });
-
-    document.getElementById('count-pending').innerText = pending;
-    document.getElementById('count-delivered').innerText = delivered;
-    document.getElementById('count-rejected').innerText = rejected;
-}
-
-/* MENÚ FLOTANTE PARADAS */
 function toggleStopMenu() {
-    document.getElementById('stop-submenu').classList.toggle('hidden');
-}
-
-function abrirModalClienteExistente() {
-    document.getElementById('stop-submenu').classList.add('hidden');
-    switchTab('agenda');
-    alert("Selecciona un cliente de tu agenda para agregarlo a la ruta actual.");
+    const sub = document.getElementById('stop-submenu');
+    sub.classList.toggle('hidden');
 }
 
 function abrirModalParadaCentro() {
     document.getElementById('stop-submenu').classList.add('hidden');
-    const centro = map.getCenter();
-    window.tempLat = centro.lat;
-    window.tempLng = centro.lng;
-    document.getElementById('parada-nombre').value = '';
-    document.getElementById('parada-direccion').value = '';
-    document.getElementById('parada-valor').value = '';
+    const center = state.map.getCenter();
+    document.getElementById('modal-parada-title').innerText = "Añadir Parada en Ubicación Central";
+    document.getElementById('parada-nombre').value = "";
+    document.getElementById('parada-direccion').value = `Lat: ${center.lat.toFixed(4)}, Lng: ${center.lng.toFixed(4)}`;
+    document.getElementById('parada-valor').value = "150000";
     document.getElementById('modal-parada').classList.remove('hidden');
 }
 
 function guardarNuevaParada() {
-    const nombre = document.getElementById('parada-nombre').value.trim();
-    const direccion = document.getElementById('parada-direccion').value.trim();
-    const valor = parseFloat(document.getElementById('parada-valor').value) || 0;
+    const name = document.getElementById('parada-nombre').value;
+    const address = document.getElementById('parada-direccion').value;
+    const value = parseFloat(document.getElementById('parada-valor').value) || 0;
+    if (!name) { alert("Ingrese el nombre de la parada"); return; }
+    
+    const center = state.map.getCenter();
+    const activeRoute = state.routes.find(r => r.active) || state.routes[0];
+    if (!activeRoute) { alert("No hay ruta activa"); return; }
 
-    if(!nombre) { alert("Ingresa el nombre"); return; }
-
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    activeRoute.stops.push({
-        id: Date.now(),
-        title: nombre,
-        address: direccion || 'Sin dirección',
-        lat: window.tempLat || 4.6097,
-        lng: window.tempLng || -74.0817,
-        value: valor,
-        timeEst: '15 mins',
+    const newStop = {
+        id: 'stop-' + Date.now(),
+        name,
+        address: address || 'Ubicación Mapa',
+        lat: center.lat,
+        lng: center.lng,
         status: 'pending',
-        paymentMethod: appData.paymentMode || 'cash',
-        evidencePhoto: '',
+        value,
+        paymentMethod: 'cash',
+        evidencePhoto: null,
         evidenceNotes: ''
-    });
+    };
 
-    saveLocalStorage();
-    renderMapStops();
-    renderRoutesList();
-    renderActiveRouteMetrics();
-    renderRouteStopsManualList();
-    updateOrderStatusCounts();
-    updateFinancialCalculations();
+    activeRoute.stops.push(newStop);
+    saveStateToStorage();
     document.getElementById('modal-parada').classList.add('hidden');
-    alert("¡Parada añadida!");
+    renderAll();
+    alert("Parada añadida correctamente");
 }
 
-/* GESTIÓN DE RUTAS */
-function renderRoutesList() {
-    const container = document.getElementById('routes-list-container');
-    if(!container) return;
-    container.innerHTML = '';
+function abrirModalClienteExistente() {
+    document.getElementById('stop-submenu').classList.add('hidden');
+    if (state.agenda.length === 0) {
+        alert("No hay clientes en la agenda. Añada clientes primero.");
+        switchTab('agenda');
+        return;
+    }
+    const clientName = prompt("Seleccione un cliente de la agenda escribiendo su nombre:\n" + state.agenda.map(c => "- " + c.name).join('\n'));
+    if (!clientName) return;
+    const client = state.agenda.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()));
+    if (!client) { alert("Cliente no encontrado"); return; }
 
-    appData.routes.forEach(route => {
-        const card = document.createElement('div');
-        card.className = route.active ? "bg-neutral-900 border border-blue-500/50 p-4 rounded-2xl shadow space-y-2" : "bg-neutral-900 border border-neutral-800 p-4 rounded-2xl shadow space-y-2";
-        card.innerHTML = `
-            <div class="flex justify-between items-start">
-                <div class="cursor-pointer flex-1" onclick="activarRuta(${route.id})">
-                    <div class="flex items-center space-x-2">
-                        <h4 class="font-bold text-white text-sm">${route.title}</h4>
-                        ${route.active ? '<span class="bg-blue-600/20 text-blue-400 text-[10px] px-2 py-0.5 rounded font-bold">Activa</span>' : ''}
-                    </div>
-                    <p class="text-xs text-neutral-400 mt-1">${route.stops.length} paradas • ${route.distanceKm || 12} km</p>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <button onclick="openRouteStopsView(${route.id})" class="bg-neutral-800 hover:bg-neutral-700 text-xs px-2.5 py-1.5 rounded-lg text-blue-400 font-semibold border border-neutral-700">Paradas</button>
-                    <button onclick="deleteRoute(${route.id})" class="text-neutral-500 hover:text-rose-400 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>
-            </div>
-        `;
-        container.appendChild(card);
-    });
-    lucide.createIcons();
+    const activeRoute = state.routes.find(r => r.active) || state.routes[0];
+    const newStop = {
+        id: 'stop-' + Date.now(),
+        name: client.name,
+        address: client.address,
+        lat: 4.6097 + (Math.random() - 0.5) * 0.02,
+        lng: -74.0817 + (Math.random() - 0.5) * 0.02,
+        status: 'pending',
+        value: 200000,
+        paymentMethod: 'cash',
+        evidencePhoto: null,
+        evidenceNotes: ''
+    };
+    activeRoute.stops.push(newStop);
+    saveStateToStorage();
+    renderAll();
+    alert(`Cliente ${client.name} añadido a la ruta activa`);
 }
 
-function renderActiveRouteMetrics() {
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    if(!activeRoute) return;
-
-    document.getElementById('route-active-title').innerText = activeRoute.title;
-    document.getElementById('metric-km').innerText = `${activeRoute.distanceKm || 12.0} km`;
-    document.getElementById('metric-clients').innerText = activeRoute.stops.length;
-    const totalMoney = activeRoute.stops.reduce((acc, s) => acc + (s.value || 0), 0);
-    document.getElementById('metric-money').innerText = `$${totalMoney.toLocaleString()}`;
-}
-
-function activarRuta(routeId) {
-    appData.routes.forEach(r => r.active = (r.id === routeId));
-    saveLocalStorage();
-    renderRoutesList();
-    renderActiveRouteMetrics();
-    renderMapStops();
-    renderRouteStopsManualList();
-    updateOrderStatusCounts();
-    updateFinancialCalculations();
-    alert("¡Ruta activada!");
-}
-
-function deleteRoute(routeId) {
-    if(appData.routes.length <= 1) { alert("Debes mantener al menos una ruta."); return; }
-    if(confirm("¿Eliminar esta ruta?")) {
-        appData.routes = appData.routes.filter(r => r.id !== routeId);
-        saveLocalStorage();
-        renderRoutesList();
-        renderActiveRouteMetrics();
-        renderMapStops();
+// Cambio de Medio de Transporte y Cálculo de Tiempos
+function changeTransportMode(mode) {
+    const activeRoute = state.routes.find(r => r.active) || state.routes[0];
+    if (activeRoute) {
+        activeRoute.transportMode = mode;
+        state.transportMode = mode;
+        saveStateToStorage();
+        renderAll();
     }
 }
 
-function openRouteStopsView(routeId) {
-    selectedRouteId = routeId;
-    const route = appData.routes.find(r => r.id === routeId);
-    if(!route) return;
+// Algoritmo de Optimización Inteligente (factorizando Medio de Transporte)
+function optimizarRutaInteligente() {
+    const activeRoute = state.routes.find(r => r.active) || state.routes[0];
+    if (!activeRoute || activeRoute.stops.length <= 1) {
+        alert("Se requieren al menos 2 paradas para optimizar la ruta.");
+        return;
+    }
 
+    let pendingStops = activeRoute.stops.filter(s => s.status === 'pending');
+    let completedStops = activeRoute.stops.filter(s => s.status !== 'pending');
+
+    if (pendingStops.length <= 1) {
+        alert("No hay suficientes paradas pendientes para reordenar.");
+        return;
+    }
+
+    let optimized = [];
+    let current = pendingStops[0];
+    let unvisited = pendingStops.slice(1);
+    optimized.push(current);
+
+    while (unvisited.length > 0) {
+        let nearestIndex = 0;
+        let minDist = Infinity;
+        for (let i = 0; i < unvisited.length; i++) {
+            let dist = Math.hypot(unvisited[i].lat - current.lat, unvisited[i].lng - current.lng);
+            if (dist < minDist) {
+                minDist = dist;
+                nearestIndex = i;
+            }
+        }
+        current = unvisited.splice(nearestIndex, 1)[0];
+        optimized.push(current);
+    }
+
+    activeRoute.stops = [...optimized, ...completedStops];
+    saveStateToStorage();
+    renderAll();
+    alert(`Ruta optimizada exitosamente para el medio de transporte seleccionado (${getTransportName(activeRoute.transportMode)}).`);
+}
+
+function getTransportName(mode) {
+    const mapNames = { walk: 'A pie (Muñeco GPS)', bike: 'Bicicleta GPS', moto: 'Moto GPS', car: 'Carro GPS', truck: 'Camión GPS' };
+    return mapNames[mode] || 'Carro GPS';
+}
+
+// Renderizado General
+function renderAll() {
+    renderMapMarkersAndPolyline();
+    renderRoutesList();
+    renderActiveRouteCard();
+    renderAgendaList();
+    renderExpenses();
+    renderFinances();
+    lucide.createIcons();
+}
+
+function renderMapMarkersAndPolyline() {
+    if (!state.map) return;
+    state.markerList.forEach(m => state.map.removeLayer(m));
+    state.markerList = [];
+    if (state.polylineLayer) state.map.removeLayer(state.polylineLayer);
+
+    const activeRoute = state.routes.find(r => r.active) || state.routes[0];
+    if (!activeRoute || activeRoute.stops.length === 0) return;
+
+    let latlngs = [];
+    activeRoute.stops.forEach((stop, index) => {
+        latlngs.push([stop.lat, stop.lng]);
+
+        let colorBg = '#3b82f6';
+        if (stop.status === 'delivered') colorBg = '#10b981';
+        if (stop.status === 'rejected') colorBg = '#f43f5e';
+
+        const htmlIcon = `<div style="background-color: ${colorBg}; width: 26px; height: 26px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">${index + 1}</div>`;
+        const customIcon = L.divIcon({ html: htmlIcon, className: 'custom-map-marker', iconSize: [26, 26], iconAnchor: [13, 13] });
+
+        const marker = L.marker([stop.lat, stop.lng], { icon: customIcon }).addTo(state.map);
+        marker.bindPopup(`
+            <div class="p-1 text-xs space-y-1">
+                <strong>#${index + 1} - ${stop.name}</strong><br>
+                <span>${stop.address}</span><br>
+                <span class="text-emerald-400 font-bold">$${stop.value.toLocaleString()}</span><br>
+                <button onclick="openEvidenceModal('${stop.id}')" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Gestionar Entrega</button>
+            </div>
+        `);
+        state.markerList.push(marker);
+    });
+
+    if (latlngs.length > 0) {
+        state.polylineLayer = L.polyline(latlngs, { color: '#3b82f6', weight: 4, opacity: 0.8, dashArray: '6, 6' }).addTo(state.map);
+    }
+}
+
+function renderActiveRouteCard() {
+    const activeRoute = state.routes.find(r => r.active) || state.routes[0];
+    if (!activeRoute) return;
+
+    document.getElementById('route-active-title').innerText = activeRoute.name;
+    const modeSelect = document.getElementById('transport-mode-select');
+    if (modeSelect) modeSelect.value = activeRoute.transportMode || 'car';
+
+    let totalDistKm = 0;
+    for (let i = 0; i < activeRoute.stops.length - 1; i++) {
+        let p1 = activeRoute.stops[i];
+        let p2 = activeRoute.stops[i+1];
+        let d = Math.hypot(p2.lat - p1.lat, p2.lng - p1.lng) * 111;
+        totalDistKm += d;
+    }
+
+    const speed = TRANSPORT_SPEEDS[activeRoute.transportMode || 'car'] || 30;
+    let travelHours = totalDistKm / speed;
+    let stopMinutes = activeRoute.stops.length * 4;
+    let totalMinutes = Math.round(travelHours * 60 + stopMinutes);
+
+    let totalMoney = activeRoute.stops.reduce((acc, s) => acc + (s.status === 'delivered' ? s.value : 0), 0);
+    let countPending = activeRoute.stops.filter(s => s.status === 'pending').length;
+    let countDelivered = activeRoute.stops.filter(s => s.status === 'delivered').length;
+    let countRejected = activeRoute.stops.filter(s => s.status === 'rejected').length;
+
+    document.getElementById('metric-km').innerText = totalDistKm.toFixed(1) + ' km';
+    document.getElementById('metric-time').innerText = totalMinutes + ' min';
+    document.getElementById('metric-clients').innerText = activeRoute.stops.length;
+    document.getElementById('metric-money').innerText = '$' + totalMoney.toLocaleString();
+
+    document.getElementById('count-pending').innerText = countPending;
+    document.getElementById('count-delivered').innerText = countDelivered;
+    document.getElementById('count-rejected').innerText = countRejected;
+}
+
+function renderRoutesList() {
+    const container = document.getElementById('routes-list-container');
+    if (!container) return;
+    container.innerHTML = state.routes.map(r => `
+        <div class="bg-neutral-900 border ${r.active ? 'border-blue-500/60' : 'border-neutral-800'} rounded-xl p-3 flex justify-between items-center text-xs">
+            <div>
+                <strong class="text-white">${r.name}</strong>
+                <p class="text-[10px] text-neutral-400">${r.stops.length} paradas • Transporte: ${getTransportName(r.transportMode || 'car')}</p>
+            </div>
+            <div class="flex gap-1.5">
+                <button onclick="viewRouteStops('${r.id}')" class="bg-neutral-800 hover:bg-neutral-700 text-blue-400 px-2.5 py-1.5 rounded-lg font-semibold">Paradas</button>
+                ${!r.active ? `<button onclick="makeRouteActive('${r.id}')" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg font-semibold">Activar</button>` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+function makeRouteActive(id) {
+    state.routes.forEach(r => r.active = (r.id === id));
+    saveStateToStorage();
+    renderAll();
+}
+
+function viewRouteStops(id) {
+    state.viewingRouteId = id;
+    const r = state.routes.find(x => x.id === id);
+    if (!r) return;
     document.getElementById('routes-list-container').classList.add('hidden');
-    document.getElementById('active-route-card').classList.add('hidden');
     document.getElementById('route-stops-container').classList.remove('hidden');
-    document.getElementById('stops-route-header-title').innerText = `Paradas de: ${route.title}`;
-    renderRouteStopsManualList();
+    document.getElementById('stops-route-header-title').innerText = `Paradas de: ${r.name}`;
+
+    const container = document.getElementById('lista-paradas-ruta');
+    container.innerHTML = r.stops.map((s, idx) => `
+        <div class="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2.5">
+                <span class="w-6 h-6 rounded-full bg-blue-600/20 text-blue-400 font-bold flex items-center justify-center">${idx + 1}</span>
+                <div>
+                    <strong class="text-white">${s.name}</strong>
+                    <p class="text-[10px] text-neutral-400">${s.address} • $${s.value.toLocaleString()}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-1">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${s.status === 'delivered' ? 'bg-emerald-500/20 text-emerald-400' : s.status === 'rejected' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}">${s.status.toUpperCase()}</span>
+                <button onclick="openEvidenceModal('${s.id}')" class="bg-neutral-800 hover:bg-neutral-700 text-blue-400 p-1.5 rounded-lg"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+            </div>
+        </div>
+    `).join('');
+    lucide.createIcons();
 }
 
 function backToRoutesList() {
     document.getElementById('route-stops-container').classList.add('hidden');
     document.getElementById('routes-list-container').classList.remove('hidden');
-    document.getElementById('active-route-card').classList.remove('hidden');
-}
-
-function renderRouteStopsManualList() {
-    const route = appData.routes.find(r => r.id === selectedRouteId) || appData.routes[0];
-    const container = document.getElementById('lista-paradas-ruta');
-    if(!container || !route) return;
-    container.innerHTML = '';
-
-    route.stops.forEach((stop, idx) => {
-        let statusBadge = '<span class="bg-blue-600/20 text-blue-400 text-[10px] px-2 py-0.5 rounded">Pendiente</span>';
-        if(stop.status === 'delivered') statusBadge = '<span class="bg-emerald-600/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded">Entregado</span>';
-        else if(stop.status === 'rejected') statusBadge = '<span class="bg-rose-600/20 text-rose-400 text-[10px] px-2 py-0.5 rounded">Rechazado</span>';
-
-        const paymentBadge = stop.paymentMethod === 'transfer' ? '<span class="bg-cyan-600/20 text-cyan-400 text-[10px] px-2 py-0.5 rounded">Transferencia</span>' : '<span class="bg-amber-600/20 text-amber-400 text-[10px] px-2 py-0.5 rounded">Efectivo</span>';
-
-        const item = document.createElement('div');
-        item.className = "bg-neutral-900 border border-neutral-800 p-3.5 rounded-2xl space-y-2.5 text-xs shadow";
-        item.innerHTML = `
-            <div class="flex justify-between items-start">
-                <div>
-                    <div class="flex items-center space-x-2">
-                        <strong class="text-white">#${idx+1}. ${stop.title}</strong>
-                        ${statusBadge}
-                        ${stop.status === 'delivered' ? paymentBadge : ''}
-                    </div>
-                    <p class="text-neutral-400 mt-1">${stop.address} • <strong class="text-emerald-400">$${(stop.value||0).toLocaleString()}</strong></p>
-                    ${stop.evidenceNotes ? `<p class="text-[11px] text-neutral-300 mt-1 italic">Nota: ${stop.evidenceNotes}</p>` : ''}
-                </div>
-                <div class="flex flex-col gap-1">
-                    <button onclick="moveStopOrder(${route.id}, ${idx}, -1)" class="w-7 h-7 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg flex items-center justify-center font-bold">▲</button>
-                    <button onclick="moveStopOrder(${route.id}, ${idx}, 1)" class="w-7 h-7 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg flex items-center justify-center font-bold">▼</button>
-                </div>
-            </div>
-
-            <!-- ACCESOS RÁPIDOS PARA ENTREGAS Y RECHAZOS -->
-            <div class="grid grid-cols-3 gap-2 pt-1">
-                <button onclick="quickMarkStop(${stop.id}, 'delivered')" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 py-1.5 rounded-xl font-bold flex items-center justify-center gap-1">✅ Entregar</button>
-                <button onclick="quickMarkStop(${stop.id}, 'rejected')" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 py-1.5 rounded-xl font-bold flex items-center justify-center gap-1">❌ Rechazar</button>
-                <button onclick="openEvidenceModal(${stop.id}, '${stop.status}')" class="bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 py-1.5 rounded-xl font-bold">📸 Evidencia</button>
-            </div>
-
-            <div class="flex justify-between pt-1 border-t border-neutral-800 text-[11px]">
-                <span class="text-neutral-500">Acción avanzada o eliminar:</span>
-                <button onclick="removeStopFromRoute(${route.id}, ${stop.id})" class="text-rose-400 font-semibold">Eliminar de Ruta</button>
-            </div>
-        `;
-        container.appendChild(item);
-    });
-}
-
-function removeStopFromRoute(routeId, stopId) {
-    const route = appData.routes.find(r => r.id === routeId);
-    if(route) {
-        route.stops = route.stops.filter(s => s.id !== stopId);
-        saveLocalStorage();
-        renderRouteStopsManualList();
-        renderMapStops();
-        renderActiveRouteMetrics();
-        updateOrderStatusCounts();
-        updateFinancialCalculations();
-    }
 }
 
 function openCreateRouteModal() {
-    document.getElementById('new-route-name').value = '';
+    document.getElementById('new-route-name').value = "";
     document.getElementById('modal-route').classList.remove('hidden');
 }
 
 function createNewRoute() {
-    const name = document.getElementById('new-route-name').value.trim();
-    if(!name) { alert("Ingresa un nombre"); return; }
-    const newR = { id: Date.now(), title: name, active: false, distanceKm: 8.5, stops: [] };
-    appData.routes.push(newR);
-    saveLocalStorage();
-    renderRoutesList();
+    const name = document.getElementById('new-route-name').value;
+    if (!name) { alert("Ingrese un nombre para la ruta"); return; }
+    const newR = {
+        id: 'route-' + Date.now(),
+        name,
+        active: false,
+        transportMode: state.transportMode || 'car',
+        stops: []
+    };
+    state.routes.push(newR);
+    saveStateToStorage();
     document.getElementById('modal-route').classList.add('hidden');
+    renderAll();
 }
 
-/* AGENDA */
-function renderAgendaCards() {
-    const container = document.getElementById('lista-agenda');
-    if(!container) return;
-    container.innerHTML = '';
+// Modal de Evidencia y Gestión de Entrega
+function openEvidenceModal(stopId) {
+    let stop = null;
+    for (let r of state.routes) {
+        let found = r.stops.find(s => s.id === stopId);
+        if (found) { stop = found; break; }
+    }
+    if (!stop) return;
 
-    appData.agenda.forEach(cli => {
-        const card = document.createElement('div');
-        card.className = "bg-neutral-900 border border-neutral-800 rounded-2xl p-4 shadow space-y-3";
-        card.innerHTML = `
-            <div class="flex items-start space-x-3">
-                <div class="w-12 h-12 rounded-xl bg-neutral-800 overflow-hidden flex items-center justify-center shrink-0 border border-neutral-700">
-                    ${cli.foto ? `<img src="${cli.foto}" class="w-full h-full object-cover">` : '<i data-lucide="store" class="w-6 h-6 text-neutral-400"></i>'}
+    document.getElementById('evidence-stop-id').value = stop.id;
+    document.getElementById('evidence-status').value = stop.status === 'pending' ? 'delivered' : stop.status;
+    document.getElementById('evidence-payment-method').value = stop.paymentMethod || 'cash';
+    document.getElementById('evidence-notes').value = stop.evidenceNotes || '';
+    document.getElementById('evidence-photo-base64').value = stop.evidencePhoto || '';
+    
+    const prev = document.getElementById('evidence-preview-img');
+    const prevContainer = document.getElementById('evidence-preview-container');
+    if (stop.evidencePhoto) {
+        prev.src = stop.evidencePhoto;
+        prevContainer.classList.remove('hidden');
+    } else {
+        prevContainer.classList.add('hidden');
+    }
+
+    toggleEvidenceFields();
+    document.getElementById('modal-evidence').classList.remove('hidden');
+}
+
+function toggleEvidenceFields() {
+    const st = document.getElementById('evidence-status').value;
+    const payContainer = document.getElementById('container-payment-method');
+    const notesLabel = document.getElementById('evidence-notes-label');
+    if (st === 'rejected') {
+        payContainer.classList.add('hidden');
+        notesLabel.innerText = "Motivo del Rechazo / Novedad *";
+    } else {
+        payContainer.classList.remove('hidden');
+        notesLabel.innerText = "Observaciones de la Entrega";
+    }
+}
+
+function handleEvidencePhotoSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        document.getElementById('evidence-photo-base64').value = evt.target.result;
+        const prev = document.getElementById('evidence-preview-img');
+        prev.src = evt.target.result;
+        document.getElementById('evidence-preview-container').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+}
+
+function saveEvidence() {
+    const stopId = document.getElementById('evidence-stop-id').value;
+    const status = document.getElementById('evidence-status').value;
+    const paymentMethod = document.getElementById('evidence-payment-method').value;
+    const notes = document.getElementById('evidence-notes').value;
+    const photo = document.getElementById('evidence-photo-base64').value;
+
+    for (let r of state.routes) {
+        let stop = r.stops.find(s => s.id === stopId);
+        if (stop) {
+            stop.status = status;
+            stop.paymentMethod = paymentMethod;
+            stop.evidenceNotes = notes;
+            stop.evidencePhoto = photo;
+            break;
+        }
+    }
+    saveStateToStorage();
+    document.getElementById('modal-evidence').classList.add('hidden');
+    renderAll();
+}
+
+// Agenda de Clientes
+function renderAgendaList() {
+    const container = document.getElementById('lista-agenda');
+    if (!container) return;
+    container.innerHTML = state.agenda.map(c => `
+        <div class="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex justify-between items-center text-xs">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-neutral-800 overflow-hidden flex items-center justify-center text-neutral-400 font-bold border border-neutral-700">
+                    ${c.photo ? `<img src="${c.photo}" class="w-full h-full object-cover">` : '<i data-lucide="store" class="w-5 h-5">ID</i>'}
                 </div>
-                <div class="flex-1">
-                    <h4 class="font-bold text-white text-sm">${cli.nombre}</h4>
-                    <p class="text-xs text-neutral-400 mt-0.5">${cli.direccion}</p>
-                    <p class="text-xs text-blue-400 mt-0.5">Tel: ${cli.telefono || 'N/A'}</p>
+                <div>
+                    <strong class="text-white">${c.name}</strong>
+                    <p class="text-[10px] text-neutral-400">${c.address} • Tel: ${c.phone || 'N/A'}</p>
+                    ${c.obs ? `<p class="text-[10px] text-blue-400 mt-0.5">${c.obs}</p>` : ''}
                 </div>
             </div>
-            ${cli.observacion ? `<p class="text-xs text-neutral-300 bg-neutral-950 p-2 rounded-xl border border-neutral-800">${cli.observacion}</p>` : ''}
-            <div class="flex gap-2 pt-1 border-t border-neutral-800 text-xs">
-                <button onclick="agregarAgendaARuta(${cli.id})" class="flex-1 bg-blue-600/20 text-blue-400 py-2 rounded-xl font-semibold">+ Ruta</button>
-                <button onclick="openClientModal('edit', ${cli.id})" class="bg-neutral-800 text-neutral-300 px-3 py-2 rounded-xl font-semibold">Editar</button>
-                <button onclick="deleteClient(${cli.id})" class="bg-rose-500/10 text-rose-400 px-3 py-2 rounded-xl font-semibold">Borrar</button>
+            <div class="flex gap-1.5">
+                <button onclick="addClientToActiveRoute('${c.id}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 rounded-xl font-semibold shadow" title="Añadir a ruta activa">+</button>
+                <button onclick="editClient('${c.id}')" class="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 p-1.5 rounded-xl"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
             </div>
-        `;
-        container.appendChild(card);
-    });
+        </div>
+    `).join('');
     lucide.createIcons();
 }
 
-function openClientModal(mode, clientId) {
-    document.getElementById('client-edit-id').value = '';
-    document.getElementById('client-name').value = '';
-    document.getElementById('client-address').value = '';
-    document.getElementById('client-phone').value = '';
-    document.getElementById('client-photo-file').value = '';
-    document.getElementById('client-photo-base64').value = '';
-    document.getElementById('client-obs').value = '';
-
-    if(mode === 'edit' && clientId) {
-        const cli = appData.agenda.find(c => c.id === clientId);
-        if(cli) {
-            document.getElementById('client-edit-id').value = cli.id;
-            document.getElementById('client-name').value = cli.nombre;
-            document.getElementById('client-address').value = cli.direccion;
-            document.getElementById('client-phone').value = cli.telefono || '';
-            document.getElementById('client-photo-base64').value = cli.foto || '';
-            document.getElementById('client-obs').value = cli.observacion || '';
-            document.getElementById('modal-client-title').innerText = 'Editar Cliente';
-        }
-    } else {
-        document.getElementById('modal-client-title').innerText = 'Nuevo Cliente';
-    }
+function openClientModal(mode) {
+    document.getElementById('client-edit-id').value = "";
+    document.getElementById('client-name').value = "";
+    document.getElementById('client-address').value = "";
+    document.getElementById('client-phone').value = "";
+    document.getElementById('client-photo-base64').value = "";
+    document.getElementById('client-obs').value = "";
+    document.getElementById('modal-client-title').innerText = "Nuevo Cliente";
     document.getElementById('modal-client').classList.remove('hidden');
+}
+
+function handleClientPhotoSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        document.getElementById('client-photo-base64').value = evt.target.result;
+    };
+    reader.readAsDataURL(file);
 }
 
 function handleClientSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('client-edit-id').value;
-    const nombre = document.getElementById('client-name').value.trim();
-    const direccion = document.getElementById('client-address').value.trim();
-    const telefono = document.getElementById('client-phone').value.trim();
-    const foto = document.getElementById('client-photo-base64').value.trim();
-    const observacion = document.getElementById('client-obs').value.trim();
+    const name = document.getElementById('client-name').value;
+    const address = document.getElementById('client-address').value;
+    const phone = document.getElementById('client-phone').value;
+    const photo = document.getElementById('client-photo-base64').value;
+    const obs = document.getElementById('client-obs').value;
 
-    if(id) {
-        const cli = appData.agenda.find(c => c.id == id);
-        if(cli) { cli.nombre = nombre; cli.direccion = direccion; cli.telefono = telefono; if(foto) cli.foto = foto; cli.observacion = observacion; }
+    if (id) {
+        const c = state.agenda.find(x => x.id === id);
+        if (c) {
+            c.name = name; c.address = address; c.phone = phone; if(photo) c.photo = photo; c.obs = obs;
+        }
     } else {
-        appData.agenda.push({ id: Date.now(), nombre, direccion, telefono, foto, observacion });
+        const nc = {
+            id: 'client-' + Date.now(),
+            name, address, phone, photo: photo || null, obs
+        };
+        state.agenda.push(nc);
     }
-    saveLocalStorage();
-    renderAgendaCards();
+    saveStateToStorage();
     document.getElementById('modal-client').classList.add('hidden');
+    renderAll();
 }
 
-function deleteClient(id) {
-    if(confirm("¿Eliminar cliente?")) {
-        appData.agenda = appData.agenda.filter(c => c.id !== id);
-        saveLocalStorage();
-        renderAgendaCards();
-    }
+function editClient(id) {
+    const c = state.agenda.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('client-edit-id').value = c.id;
+    document.getElementById('client-name').value = c.name;
+    document.getElementById('client-address').value = c.address;
+    document.getElementById('client-phone').value = c.phone;
+    document.getElementById('client-photo-base64').value = c.photo || '';
+    document.getElementById('client-obs').value = c.obs || '';
+    document.getElementById('modal-client-title').innerText = "Editar Cliente";
+    document.getElementById('modal-client').classList.remove('hidden');
 }
 
-function agregarAgendaARuta(id) {
-    const cli = appData.agenda.find(c => c.id === id);
-    if(!cli) return;
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
+function addClientToActiveRoute(clientId) {
+    const c = state.agenda.find(x => x.id === clientId);
+    if (!c) return;
+    const activeRoute = state.routes.find(r => r.active) || state.routes[0];
     activeRoute.stops.push({
-        id: Date.now(),
-        title: cli.nombre,
-        address: cli.direccion,
-        lat: 4.6097 + (Math.random()*0.02 - 0.01),
-        lng: -74.0817 + (Math.random()*0.02 - 0.01),
-        value: 100000,
-        timeEst: '15 mins',
+        id: 'stop-' + Date.now(),
+        name: c.name,
+        address: c.address,
+        lat: 4.6097 + (Math.random() - 0.5) * 0.02,
+        lng: -74.0817 + (Math.random() - 0.5) * 0.02,
         status: 'pending',
+        value: 150000,
         paymentMethod: 'cash',
-        evidencePhoto: '',
+        evidencePhoto: null,
         evidenceNotes: ''
     });
-    saveLocalStorage();
-    renderMapStops();
-    renderActiveRouteMetrics();
-    renderRouteStopsManualList();
-    updateOrderStatusCounts();
-    updateFinancialCalculations();
-    alert(`¡${cli.nombre} agregado a la ruta!`);
+    saveStateToStorage();
+    renderAll();
+    alert(`Cliente ${c.name} añadido a la ruta activa.`);
 }
 
-/* CAJA Y COMPARATIVA FINANCIERA DE LAS 3 DEPENDENCIAS */
+// Finanzas y Caja
 function setPaymentMode(mode) {
-    appData.paymentMode = mode;
-    document.getElementById('pay-mode-cash').className = mode === 'cash' ? 'py-2.5 rounded-xl bg-blue-600 text-white font-bold transition' : 'py-2.5 rounded-xl bg-neutral-800 text-neutral-300 font-bold transition';
-    document.getElementById('pay-mode-trans').className = mode === 'transfer' ? 'py-2.5 rounded-xl bg-blue-600 text-white font-bold transition' : 'py-2.5 rounded-xl bg-neutral-800 text-neutral-300 font-bold transition';
-    document.getElementById('payment-mode-badge').innerText = mode === 'cash' ? 'Efectivo' : 'Transferencia';
-    updateFinancialCalculations();
+    state.paymentMode = mode;
+    document.getElementById('pay-mode-cash').className = mode === 'cash' ? "py-2.5 rounded-xl bg-blue-600 text-white font-bold transition" : "py-2.5 rounded-xl bg-neutral-800 text-neutral-300 font-bold transition";
+    document.getElementById('pay-mode-trans').className = mode === 'transfer' ? "py-2.5 rounded-xl bg-blue-600 text-white font-bold transition" : "py-2.5 rounded-xl bg-neutral-800 text-neutral-300 font-bold transition";
+    document.getElementById('payment-mode-badge').innerText = mode === 'cash' ? 'Efectivo Predominante' : 'Transferencia Predominante';
+    saveStateToStorage();
+    renderFinances();
 }
 
-function renderDenominations() {
+function initDenominationsUI() {
     const container = document.getElementById('denominations-container');
-    if(!container) return;
-    container.innerHTML = '';
+    if (!container) return;
+    const denoms = [
+        { key: '100000', label: '$100.000' },
+        { key: '50000', label: '$50.000' },
+        { key: '20000', label: '$20.000' },
+        { key: '10000', label: '$10.000' },
+        { key: '5000', label: '$5.000' },
+        { key: '2000', label: '$2.000' },
+        { key: '1000', label: '$1.000' },
+        { key: 'coins', label: 'Monedas / Otros' }
+    ];
 
-    denominations.forEach(d => {
-        const count = appData.cashCounts[d.value] || 0;
-        const subtotal = d.value * count;
-        const row = document.createElement('div');
-        row.className = "bg-neutral-950 border border-neutral-800 p-2.5 rounded-xl flex items-center justify-between text-xs";
-        row.innerHTML = `
-            <div>
-                <div class="font-bold text-white">${d.label}</div>
-                <div class="text-[10px] text-emerald-400">Sub: $${subtotal.toLocaleString()}</div>
-            </div>
+    container.innerHTML = denoms.map(d => `
+        <div class="flex items-center justify-between bg-neutral-950 p-2 rounded-xl border border-neutral-800 text-xs">
+            <span class="font-semibold text-neutral-300">${d.label}</span>
             <div class="flex items-center space-x-2">
-                <button onclick="updateDenomCount(${d.value}, -1)" class="w-7 h-7 bg-neutral-800 rounded-lg text-white font-bold">-</button>
-                <input type="number" value="${count}" onchange="setDenomDirect(${d.value}, this.value)" class="w-12 bg-neutral-900 border border-neutral-800 text-center text-white rounded-lg py-1">
-                <button onclick="updateDenomCount(${d.value}, 1)" class="w-7 h-7 bg-blue-600 rounded-lg text-white font-bold">+</button>
+                <button onclick="updateDenom('${d.key}', -1)" class="w-7 h-7 bg-neutral-800 text-white rounded-lg font-bold">-</button>
+                <span id="denom-count-${d.key}" class="w-8 text-center font-bold text-white">${state.cashDenominations[d.key] || 0}</span>
+                <button onclick="updateDenom('${d.key}', 1)" class="w-7 h-7 bg-neutral-800 text-white rounded-lg font-bold">+</button>
             </div>
-        `;
-        container.appendChild(row);
-    });
+        </div>
+    `).join('');
 }
 
-function updateDenomCount(val, change) {
-    let cur = appData.cashCounts[val] || 0;
-    cur = Math.max(0, cur + change);
-    appData.cashCounts[val] = cur;
-    saveLocalStorage();
-    renderDenominations();
-    updateFinancialCalculations();
-}
-
-function setDenomDirect(val, count) {
-    appData.cashCounts[val] = Math.max(0, parseInt(count) || 0);
-    saveLocalStorage();
-    renderDenominations();
-    updateFinancialCalculations();
+function updateDenom(key, delta) {
+    let curr = state.cashDenominations[key] || 0;
+    curr = Math.max(0, curr + delta);
+    state.cashDenominations[key] = curr;
+    document.getElementById(`denom-count-${key}`).innerText = curr;
+    saveStateToStorage();
+    renderFinances();
 }
 
 function resetCashCounter() {
-    denominations.forEach(d => appData.cashCounts[d.value] = 0);
-    saveLocalStorage();
-    renderDenominations();
-    updateFinancialCalculations();
+    Object.keys(state.cashDenominations).forEach(k => state.cashDenominations[k] = 0);
+    saveStateToStorage();
+    initDenominationsUI();
+    renderFinances();
 }
 
 function addExpense() {
-    const concept = document.getElementById('expense-concept').value.trim();
-    const amount = parseFloat(document.getElementById('expense-amount').value) || 0;
-    if(!concept || amount <= 0) { alert("Ingresa concepto y monto válido"); return; }
-
-    appData.expenses.push({ id: Date.now(), concept, amount });
-    saveLocalStorage();
-    document.getElementById('expense-concept').value = '';
-    document.getElementById('expense-amount').value = '';
+    const concept = document.getElementById('expense-concept').value;
+    const amount = parseFloat(document.getElementById('expense-amount').value);
+    if (!concept || isNaN(amount)) { alert("Ingrese concepto y monto válido"); return; }
+    state.expenses.push({ id: 'exp-' + Date.now(), concept, amount });
+    document.getElementById('expense-concept').value = "";
+    document.getElementById('expense-amount').value = "";
+    saveStateToStorage();
     renderExpenses();
-    updateFinancialCalculations();
+    renderFinances();
+}
+
+function deleteExpense(id) {
+    state.expenses = state.expenses.filter(e => e.id !== id);
+    saveStateToStorage();
+    renderExpenses();
+    renderFinances();
 }
 
 function renderExpenses() {
     const container = document.getElementById('expenses-list');
-    if(!container) return;
-    container.innerHTML = '';
-    appData.expenses.forEach(exp => {
-        const item = document.createElement('div');
-        item.className = "bg-neutral-950 border border-neutral-800 p-2.5 rounded-xl text-xs flex justify-between items-center";
-        item.innerHTML = `
+    if (!container) return;
+    container.innerHTML = state.expenses.map(e => `
+        <div class="flex justify-between items-center bg-neutral-950 p-2 rounded-xl border border-neutral-800 text-xs">
             <div>
-                <div class="font-medium text-white">${exp.concept}</div>
-                <div class="text-rose-400 font-bold">-$${exp.amount.toLocaleString()}</div>
+                <strong class="text-white">${e.concept}</strong>
+                <span class="text-rose-400 font-bold ml-2">-$${e.amount.toLocaleString()}</span>
             </div>
-            <button onclick="deleteExpense(${exp.id})" class="text-neutral-500 hover:text-rose-400">Eliminar</button>
-        `;
-        container.appendChild(item);
-    });
+            <button onclick="deleteExpense('${e.id}')" class="text-rose-400 hover:text-rose-300 font-bold px-2 py-1">×</button>
+        </div>
+    `).join('');
 }
 
-function deleteExpense(id) {
-    appData.expenses = appData.expenses.filter(e => e.id !== id);
-    saveLocalStorage();
-    renderExpenses();
-    updateFinancialCalculations();
-}
+function renderFinances() {
+    let totalCashPhysical = (
+        (state.cashDenominations['100000'] || 0) * 100000 +
+        (state.cashDenominations['50000'] || 0) * 50000 +
+        (state.cashDenominations['20000'] || 0) * 20000 +
+        (state.cashDenominations['10000'] || 0) * 10000 +
+        (state.cashDenominations['5000'] || 0) * 5000 +
+        (state.cashDenominations['2000'] || 0) * 2000 +
+        (state.cashDenominations['1000'] || 0) * 1000 +
+        (state.cashDenominations['coins'] || 0) * 500
+    );
 
-/* CÁLCULO Y COMPARATIVA DE LAS TRES DEPENDENCIAS FINANCIERAS */
-function updateFinancialCalculations() {
-    const activeRoute = appData.routes.find(r => r.active) || appData.routes[0];
-    
-    const totalFacturado = activeRoute ? activeRoute.stops.reduce((acc, s) => acc + (s.value || 0), 0) : 0;
-    
-    let dineroFisico = 0;
-    denominations.forEach(d => {
-        dineroFisico += d.value * (appData.cashCounts[d.value] || 0);
-    });
+    document.getElementById('counter-total-display').innerText = '$' + totalCashPhysical.toLocaleString();
 
-    // Calcular transferencias en base a los pedidos entregados cuyo pago sea 'transfer' o modo global
-    let totalTransferencias = 0;
-    if(activeRoute) {
-        activeRoute.stops.forEach(s => {
-            if(s.status === 'delivered') {
-                if(s.paymentMethod === 'transfer') {
-                    totalTransferencias += s.value || 0;
+    let totalFacturado = 0;
+    let totalTransfer = 0;
+    state.routes.forEach(r => {
+        r.stops.forEach(s => {
+            if (s.status === 'delivered') {
+                totalFacturado += s.value;
+                if (s.paymentMethod === 'transfer') {
+                    totalTransfer += s.value;
                 }
             }
         });
-    }
-    if(totalTransferencias === 0 && appData.paymentMode === 'transfer') {
-        totalTransferencias = totalFacturado;
-    }
+    });
 
-    const totalGastos = appData.expenses.reduce((acc, e) => acc + e.amount, 0);
+    let totalGastos = state.expenses.reduce((acc, e) => acc + e.amount, 0);
+    let netoTotal = totalFacturado - totalGastos;
 
-    const ingresosTotales = dineroFisico + totalTransferencias;
-    const netoFinal = ingresosTotales - totalGastos;
-
-    document.getElementById('summary-facturado').innerText = `$${totalFacturado.toLocaleString()}`;
-    document.getElementById('summary-fisico').innerText = `$${dineroFisico.toLocaleString()}`;
-    document.getElementById('summary-transfer').innerText = `$${totalTransferencias.toLocaleString()}`;
-    document.getElementById('summary-gastos').innerText = `-$${totalGastos.toLocaleString()}`;
-    document.getElementById('summary-neto-total').innerText = `$${netoFinal.toLocaleString()}`;
-    document.getElementById('final-balance-badge').innerText = `$${netoFinal.toLocaleString()} Neto`;
-    document.getElementById('counter-total-display').innerText = `$${dineroFisico.toLocaleString()}`;
+    document.getElementById('summary-facturado').innerText = '$' + totalFacturado.toLocaleString();
+    document.getElementById('summary-fisico').innerText = '$' + totalCashPhysical.toLocaleString();
+    document.getElementById('summary-transfer').innerText = '$' + totalTransfer.toLocaleString();
+    document.getElementById('summary-gastos').innerText = '$' + totalGastos.toLocaleString();
+    document.getElementById('summary-neto-total').innerText = '$' + netoTotal.toLocaleString();
+    document.getElementById('final-balance-badge').innerText = '$' + netoTotal.toLocaleString() + ' Neto';
 }
 
-/* IMPORTAR ARCHIVO ROUTIN (.bin / JSON) */
-function importarArchivoRoutin(event) {
-    const file = event.target.files[0];
-    if(!file) return;
+function importarArchivoRoutin(e) {
+    const file = e.target.files[0];
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function(evt) {
         try {
-            const data = JSON.parse(e.target.result);
-            if(data.routes || Array.isArray(data.stops) || Array.isArray(data)) {
-                if(data.routes) appData.routes = data.routes;
-                else if(Array.isArray(data.stops)) appData.routes[0].stops = data.stops;
-                else if(Array.isArray(data)) appData.routes[0].stops = data;
-
-                saveLocalStorage();
-                renderMapStops();
-                renderRoutesList();
-                renderActiveRouteMetrics();
-                renderRouteStopsManualList();
-                updateOrderStatusCounts();
-                updateFinancialCalculations();
-                alert("¡Rutas importadas con éxito!");
+            const data = JSON.parse(evt.target.result);
+            if (data.routes && Array.isArray(data.routes)) {
+                state = { ...state, ...data };
+                saveStateToStorage();
+                renderAll();
+                alert("Rutas y datos importados exitosamente.");
             } else {
-                alert("Formato no reconocido.");
+                alert("El archivo no tiene el formato válido de RouteLogix Pro.");
             }
         } catch(err) {
-            alert("Error al parsear el archivo.");
+            alert("Error al parsear el archivo de ruta.");
         }
     };
     reader.readAsText(file);
-}
-
-function saveLocalStorage() {
-    localStorage.setItem('routelogix_pro_v5', JSON.stringify(appData));
-}
-
-function loadLocalStorage() {
-    const saved = localStorage.getItem('routelogix_pro_v5');
-    if(saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            if(parsed.routes) appData.routes = parsed.routes;
-            if(parsed.agenda) appData.agenda = parsed.agenda;
-            if(parsed.expenses) appData.expenses = parsed.expenses;
-            if(parsed.cashCounts) appData.cashCounts = parsed.cashCounts;
-            if(parsed.users) appData.users = parsed.users;
-            if(parsed.paymentMode) appData.paymentMode = parsed.paymentMode;
-        } catch(e) {}
-    }
-}
-
-/* NAVEGACIÓN Y PESTAÑAS */
-function switchTab(tabId) {
-    currentTab = tabId;
-    ['map', 'routes', 'agenda', 'finances'].forEach(t => {
-        const view = document.getElementById(`view-${t}`);
-        if(view) view.classList.toggle('hidden', t !== tabId);
-        
-        const navBtn = document.getElementById(`nav-btn-${t}`);
-        if(navBtn) {
-            navBtn.classList.toggle('text-blue-500', t === tabId);
-            navBtn.classList.toggle('text-neutral-400', t !== tabId);
-        }
-    });
-
-    if(tabId === 'map' && map) {
-        setTimeout(() => map.invalidateSize(), 200);
-    }
 }

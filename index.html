@@ -29,7 +29,7 @@
             <div class="text-center space-y-1">
                 <div class="w-12 h-12 bg-blue-600/20 text-blue-400 rounded-xl flex items-center justify-center mx-auto mb-2 font-extrabold text-lg">RL</div>
                 <h1 class="text-xl font-bold text-white tracking-wide">RouteLogix Pro</h1>
-                <p class="text-xs text-neutral-400">Sistema TaT Profesional</p>
+                <p class="text-xs text-neutral-400">Sistema TaT Profesional con GPS en Vivo</p>
             </div>
 
             <div class="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 text-xs font-semibold">
@@ -80,7 +80,7 @@
             </div>
             <div>
                 <h1 id="driver-name-display" class="font-bold text-xs text-white">Conductor Asignado</h1>
-                <p class="text-[10px] text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> En servicio activo (Editar)</p>
+                <p class="text-[10px] text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS en Vivo Activo</p>
             </div>
         </div>
         <div class="flex items-center space-x-2">
@@ -114,6 +114,15 @@
                 <button onclick="setMapTileStyle('satellite')" id="style-satellite" class="px-2.5 py-1 rounded-lg text-neutral-300 font-medium">Satélite</button>
             </div>
 
+            <!-- WIDGET DE VELOCIDAD GPS EN TIEMPO REAL -->
+            <div id="gps-speed-widget" class="absolute top-16 right-3 z-30 bg-neutral-900/95 backdrop-blur border border-neutral-700 px-3 py-2 rounded-xl shadow-xl flex items-center space-x-2 text-xs">
+                <div id="transport-icon-indicator" class="text-blue-400 font-bold">🚗</div>
+                <div>
+                    <div class="text-[10px] text-neutral-400 uppercase font-semibold">Velocidad GPS</div>
+                    <div id="live-speed-display" class="text-white font-extrabold text-sm">0.0 km/h</div>
+                </div>
+            </div>
+
             <div id="map" class="w-full flex-1 absolute inset-0 z-0"></div>
             
             <div class="map-crosshair absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 flex items-center justify-center">
@@ -123,6 +132,10 @@
 
             <button onclick="centrarGPS()" class="absolute bottom-20 left-4 z-20 w-12 h-12 bg-neutral-900/95 backdrop-blur border border-neutral-700 rounded-full flex items-center justify-center text-blue-400 shadow-xl active:scale-95 transition" title="Mi Ubicación GPS">
                 <i data-lucide="navigation" class="w-5 h-5"></i>
+            </button>
+
+            <button onclick="toggleTrackingLive()" id="tracking-toggle-btn" class="absolute bottom-20 right-4 z-20 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xl font-bold text-xs flex items-center gap-1.5 active:scale-95 transition">
+                <i data-lucide="radio" class="w-4 h-4 animate-pulse"></i> <span>GPS Vivo: ON</span>
             </button>
 
             <div class="absolute bottom-4 left-0 right-0 z-20 px-4 flex gap-2">
@@ -165,18 +178,37 @@
                     </div>
                     <button onclick="activarRutaActual()" class="bg-neutral-800 hover:bg-neutral-700 text-blue-400 text-xs px-3 py-1.5 rounded-lg font-semibold border border-neutral-700">En Curso</button>
                 </div>
-                <div class="grid grid-cols-3 gap-2 pt-2 border-t border-neutral-800/80 text-center text-xs">
+
+                <!-- SELECTOR DE MEDIO DE TRANSPORTE -->
+                <div class="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 space-y-1.5 text-xs">
+                    <label class="block text-neutral-400 font-semibold flex items-center gap-1.5">
+                        <i data-lucide="navigation" class="w-3.5 h-3.5 text-blue-400"></i> Medio de Transporte y Marcador GPS:
+                    </label>
+                    <select id="transport-mode-select" onchange="changeTransportMode(this.value)" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-2.5 text-white font-medium focus:outline-none focus:border-blue-500">
+                        <option value="walk">🚶 A pie (~5 km/h) - Muñeco caminando</option>
+                        <option value="bike">🚲 Bicicleta (~15 km/h) - Bicicleta GPS</option>
+                        <option value="moto">🏍️ Moto (~35 km/h) - Moto GPS</option>
+                        <option value="car">🚗 Carro pequeño (~30 km/h) - Automóvil GPS</option>
+                        <option value="truck">🚚 Camión (~20 km/h) - Camión de Reparto</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2 pt-1 text-center text-xs">
                     <div class="bg-neutral-950/60 p-2 rounded-xl">
                         <span class="text-[10px] text-neutral-400 block">Distancia</span>
-                        <strong id="metric-km" class="text-white text-sm">0.0 km</strong>
+                        <strong id="metric-km" class="text-white text-xs">0.0 km</strong>
+                    </div>
+                    <div class="bg-neutral-950/60 p-2 rounded-xl">
+                        <span class="text-[10px] text-neutral-400 block">Tiempo Est.</span>
+                        <strong id="metric-time" class="text-amber-400 text-xs">0 min</strong>
                     </div>
                     <div class="bg-neutral-950/60 p-2 rounded-xl">
                         <span class="text-[10px] text-neutral-400 block">Clientes</span>
-                        <strong id="metric-clients" class="text-blue-400 text-sm">0</strong>
+                        <strong id="metric-clients" class="text-blue-400 text-xs">0</strong>
                     </div>
                     <div class="bg-neutral-950/60 p-2 rounded-xl">
-                        <span class="text-[10px] text-neutral-400 block">Total Dinero</span>
-                        <strong id="metric-money" class="text-emerald-400 text-sm">$0</strong>
+                        <span class="text-[10px] text-neutral-400 block">Dinero</span>
+                        <strong id="metric-money" class="text-emerald-400 text-xs">$0</strong>
                     </div>
                 </div>
             </div>
