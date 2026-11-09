@@ -29,7 +29,7 @@
             <div class="text-center space-y-1">
                 <div class="w-12 h-12 bg-blue-600/20 text-blue-400 rounded-xl flex items-center justify-center mx-auto mb-2 font-extrabold text-lg">RL</div>
                 <h1 class="text-xl font-bold text-white tracking-wide">RouteLogix Pro</h1>
-                <p class="text-xs text-neutral-400">Sistema TaT Profesional con GPS en Vivo</p>
+                <p class="text-xs text-neutral-400">Sistema TaT Profesional con GPS Offline</p>
             </div>
 
             <div class="flex bg-neutral-950 p-1 rounded-xl border border-neutral-800 text-xs font-semibold">
@@ -63,7 +63,7 @@
                     <input type="password" id="reg-pass" required placeholder="••••••••" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                 </div>
                 <div>
-                    <label class="block text-neutral-400 mb-1">Foto del Conductor (Cámara o Galería)</label>
+                    <label class="block text-neutral-400 mb-1">Foto del Conductor <span class="text-neutral-500 font-normal">(Opcional)</span></label>
                     <input type="file" id="reg-photo-file" accept="image/*" onchange="handleDriverPhotoSelect(event)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-white text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-300">
                     <input type="hidden" id="reg-photo-base64">
                 </div>
@@ -80,13 +80,19 @@
             </div>
             <div>
                 <h1 id="driver-name-display" class="font-bold text-xs text-white">Conductor Asignado</h1>
-                <p class="text-[10px] text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS en Vivo Activo</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                    <span id="network-status-badge" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 flex items-center gap-1">
+                        <span id="network-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="network-text">Online</span>
+                    </span>
+                    <span class="text-neutral-600">•</span>
+                    <span class="text-[10px] text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> GPS</span>
+                </div>
             </div>
         </div>
         <div class="flex items-center space-x-2">
-            <button onclick="document.getElementById('import-file-input').click()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs flex items-center space-x-1 border border-neutral-700" title="Importar rutas .bin o JSON">
+            <button onclick="document.getElementById('import-file-input').click()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs flex items-center space-x-1 border border-neutral-700" title="Importar rutas">
                 <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
-                <span class="text-[10px]">Importar</span>
             </button>
             <input type="file" id="import-file-input" class="hidden" accept=".bin,.json" onchange="importarArchivoRoutin(event)">
             <button onclick="logoutSession()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-rose-400 rounded-xl text-xs border border-neutral-700" title="Cerrar sesión">
@@ -114,13 +120,25 @@
                 <button onclick="setMapTileStyle('satellite')" id="style-satellite" class="px-2.5 py-1 rounded-lg text-neutral-300 font-medium">Satélite</button>
             </div>
 
-            <!-- WIDGET DE VELOCIDAD GPS EN TIEMPO REAL -->
-            <div id="gps-speed-widget" class="absolute top-16 right-3 z-30 bg-neutral-900/95 backdrop-blur border border-neutral-700 px-3 py-2 rounded-xl shadow-xl flex items-center space-x-2 text-xs">
-                <div id="transport-icon-indicator" class="text-blue-400 font-bold">🚗</div>
-                <div>
-                    <div class="text-[10px] text-neutral-400 uppercase font-semibold">Velocidad GPS</div>
-                    <div id="live-speed-display" class="text-white font-extrabold text-sm">0.0 km/h</div>
+            <!-- WIDGET DE DESCARGA DE MAPA OFFLINE Y VELOCIDAD -->
+            <div class="absolute top-16 right-3 z-30 flex flex-col items-end gap-2">
+                <!-- Velocidad GPS -->
+                <div id="gps-speed-widget" class="bg-neutral-900/95 backdrop-blur border border-neutral-700 px-3 py-2 rounded-xl shadow-xl flex items-center space-x-2 text-xs">
+                    <div id="transport-icon-indicator" class="text-blue-400 font-bold">🚗</div>
+                    <div>
+                        <div class="text-[10px] text-neutral-400 uppercase font-semibold">Velocidad GPS</div>
+                        <div id="live-speed-display" class="text-white font-extrabold text-sm">0.0 km/h</div>
+                    </div>
                 </div>
+
+                <!-- Botón e indicador de almacenamiento offline de mapa -->
+                <button onclick="openOfflineDownloadModal()" class="bg-neutral-900/95 hover:bg-neutral-800 backdrop-blur border border-neutral-700 px-3 py-2 rounded-xl shadow-xl flex items-center space-x-2 text-xs transition">
+                    <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-400"></i>
+                    <div class="text-left">
+                        <div class="text-[10px] text-neutral-400 uppercase font-semibold">Mapa Offline</div>
+                        <div id="offline-map-status-text" class="text-emerald-400 font-bold text-[11px]">Ver Estado</div>
+                    </div>
+                </button>
             </div>
 
             <div id="map" class="w-full flex-1 absolute inset-0 z-0"></div>
@@ -146,7 +164,7 @@
                     <div id="stop-submenu" class="hidden absolute bottom-14 left-0 right-0 bg-neutral-900 border border-neutral-800 rounded-2xl p-2 shadow-2xl space-y-1 text-xs">
                         <button onclick="abrirModalParadaCentro()" class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-neutral-800 flex items-center space-x-2 text-white">
                             <i data-lucide="map-pin" class="w-4 h-4 text-blue-400"></i>
-                            <span>Añadir dirección o ubicación exacta</span>
+                            <span>Añadir ubicación central del mapa</span>
                         </button>
                         <button onclick="abrirModalClienteExistente()" class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-neutral-800 flex items-center space-x-2 text-white">
                             <i data-lucide="book-user" class="w-4 h-4 text-emerald-400"></i>
@@ -341,6 +359,48 @@
         </div>
     </nav>
 
+    <!-- MODAL DESCARGA DE MAPA OFFLINE (INDEXEDDB STORAGE) -->
+    <div id="modal-offline-download" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-2xl text-xs">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                    <i data-lucide="download-cloud" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-sm text-white">Almacenamiento de Mapa Offline</h3>
+                    <p class="text-[11px] text-neutral-400">Guarda los mosaicos del mapa directamente en el dispositivo.</p>
+                </div>
+            </div>
+
+            <div class="bg-neutral-950 p-3 rounded-xl border border-neutral-800 space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-neutral-400">Tiles en Memoria Local:</span>
+                    <strong id="offline-tiles-count" class="text-emerald-400">0 tiles</strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-neutral-400">Estado de Descarga:</span>
+                    <strong id="offline-sync-status" class="text-blue-400">Listo para descargar</strong>
+                </div>
+                <div id="download-progress-container" class="w-full bg-neutral-800 h-2 rounded-full overflow-hidden hidden">
+                    <div id="download-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <button onclick="startDownloadingRouteMapTiles()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow transition flex items-center justify-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i> Descargar Mapa de la Ruta Activa
+                </button>
+                <button onclick="clearOfflineMapStorage()" class="w-full bg-neutral-800 hover:bg-neutral-700 text-rose-400 font-bold py-2.5 rounded-xl transition">
+                    Borrar Mosaicos Almacenados
+                </button>
+            </div>
+
+            <div class="flex justify-end pt-1">
+                <button onclick="document.getElementById('modal-offline-download').classList.add('hidden')" class="text-neutral-400 hover:text-white font-semibold">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL EDITAR PERFIL CONDUCTOR -->
     <div id="modal-driver" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
@@ -350,8 +410,8 @@
                 <input type="text" id="edit-driver-name" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
             </div>
             <div class="space-y-2">
-                <label class="block text-neutral-400">Foto (Cámara o Galería)</label>
-                <input type="file" id="edit-driver-photo-file" accept="image/*" onchange="handleEditDriverPhotoSelect(event)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-white text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-300">
+                <label class="block text-neutral-400">Foto <span class="text-neutral-500 font-normal">(Opcional)</span></label>
+                <input type="file" id="edit-driver-photo-file" accept="image/*" onchange="handleEditDriverPhotoSelect(event)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-white text-xs">
                 <input type="hidden" id="edit-driver-photo-base64">
             </div>
             <div class="flex gap-2 pt-2">
@@ -377,7 +437,7 @@
         </div>
     </div>
 
-    <!-- MODAL EVIDENCIA, MÉTODO DE PAGO Y ACCESO RÁPIDO (Cámara / Galería) -->
+    <!-- MODAL EVIDENCIA Y PAGO -->
     <div id="modal-evidence" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
             <h3 class="font-bold text-sm text-blue-400" id="evidence-modal-title">Gestión de Entrega y Evidencia</h3>
@@ -392,16 +452,16 @@
             </div>
 
             <div id="container-payment-method" class="space-y-2">
-                <label class="block text-neutral-400">Método de Pago del Pedido</label>
+                <label class="block text-neutral-400">Método de Pago</label>
                 <select id="evidence-payment-method" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                     <option value="cash">💵 Efectivo (Suma a Caja Física)</option>
-                    <option value="transfer">💳 Transferencia (Suma a Bancos)</option>
+                    <option value="transfer">💳 Transferencia</option>
                 </select>
             </div>
 
             <div class="space-y-2">
-                <label class="block text-neutral-400">Foto de Evidencia (Cámara o Galería)</label>
-                <input type="file" id="evidence-photo-file" accept="image/*" capture="environment" onchange="handleEvidencePhotoSelect(event)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-white text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-300">
+                <label class="block text-neutral-400">Foto de Evidencia <span class="text-neutral-500 font-normal">(Opcional)</span></label>
+                <input type="file" id="evidence-photo-file" accept="image/*" capture="environment" onchange="handleEvidencePhotoSelect(event)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-white text-xs">
                 <input type="hidden" id="evidence-photo-base64">
                 <div id="evidence-preview-container" class="hidden mt-1 w-20 h-20 rounded-xl overflow-hidden border border-neutral-700">
                     <img id="evidence-preview-img" class="w-full h-full object-cover">
@@ -409,12 +469,12 @@
             </div>
 
             <div class="space-y-2">
-                <label class="block text-neutral-400" id="evidence-notes-label">Observaciones / Motivo</label>
-                <textarea id="evidence-notes" rows="2" placeholder="Local cerrado, cliente rechaza por precio..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white"></textarea>
+                <label class="block text-neutral-400" id="evidence-notes-label">Observaciones</label>
+                <textarea id="evidence-notes" rows="2" placeholder="Local cerrado..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white"></textarea>
             </div>
 
             <div class="flex gap-2 pt-2">
-                <button onclick="saveEvidence()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl font-bold shadow">Guardar Entrega</button>
+                <button onclick="saveEvidence()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Guardar</button>
                 <button onclick="document.getElementById('modal-evidence').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-2.5 rounded-xl font-bold">Cancelar</button>
             </div>
         </div>
@@ -429,11 +489,6 @@
                 <input type="text" id="client-name" required placeholder="Tienda Don José" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                 <input type="text" id="client-address" required placeholder="Calle 45 # 12-30" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                 <input type="text" id="client-phone" placeholder="3102345678" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
-                <div>
-                    <label class="block text-neutral-400 mb-1">Foto del Local (Cámara / Galería)</label>
-                    <input type="file" id="client-photo-file" accept="image/*" onchange="handleClientPhotoSelect(event)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-white text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-300">
-                    <input type="hidden" id="client-photo-base64">
-                </div>
                 <textarea id="client-obs" rows="2" placeholder="Observaciones..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white"></textarea>
                 <div class="flex gap-2 pt-2">
                     <button type="submit" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Guardar</button>
@@ -447,9 +502,9 @@
     <div id="modal-route" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-2xl p-5 space-y-3 shadow-2xl text-xs">
             <h3 class="font-bold text-sm text-blue-400">Crear Nueva Ruta TaT</h3>
-            <input type="text" id="new-route-name" placeholder="Ej. Ruta Norte / Reparto Sabana" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
+            <input type="text" id="new-route-name" placeholder="Ej. Ruta Norte" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
             <div class="flex gap-2 pt-2">
-                <button onclick="createNewRoute()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Crear Ruta</button>
+                <button onclick="createNewRoute()" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold shadow">Crear</button>
                 <button onclick="document.getElementById('modal-route').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-2.5 rounded-xl font-bold">Cancelar</button>
             </div>
         </div>
