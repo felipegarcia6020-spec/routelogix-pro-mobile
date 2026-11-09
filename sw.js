@@ -1,57 +1,44 @@
-const CACHE_NAME = 'routelogix-pro-v5';
-const coreAssets = [
+const CACHE_NAME = 'routelogix-cache-v2';
+const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './app.js',
-  './style.css',
-  './manifest.json',
-  './icon.png'
+  './manifest.json'
 ];
 
-self.addEventListener('install', event => {
+// Install event: cache core assets
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      // Usar addAll para los recursos locales principales asegurando robustez
-      return cache.addAll(coreAssets).catch(err => {
-        console.warn('Algunos recursos estáticos no pudieron precargarse:', err);
-      });
-    })
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    }).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-self.addEventListener('activate', event => {
+// Activate event: clean up old caches
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.map(key => {
-        if (key !== CACHE_NAME) return caches.delete(key);
-      })
-    ))
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', event => {
-  // Evitar interceptar solicitudes de extensiones o métodos no GET
-  if (event.request.method !== 'GET') return;
-
+// Fetch event: serve from cache, fallback to network
+self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
+    caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Devolver caché y actualizar en segundo plano opcionalmente
         return cachedResponse;
       }
-      return fetch(event.request).then(networkResponse => {
-        // Almacenar en caché las teselas del mapa o recursos de red dinámicos
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && !event.request.url.includes('openstreetmap.org')) {
-          return networkResponse;
-        }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseToCache);
-        });
-        return networkResponse;
-      }).catch(() => {
+      return fetch(event.request).catch(() => {
+        // Optional fallback for navigation requests if offline
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }
