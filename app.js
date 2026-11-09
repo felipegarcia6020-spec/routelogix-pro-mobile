@@ -139,14 +139,29 @@ function updateNetworkStatus() {
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v11');
+    const saved = localStorage.getItem('routelogix_tat_state_v12');
     if (saved) {
-        try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {}
+        try { 
+            const parsed = JSON.parse(saved);
+            state = { ...state, ...parsed }; 
+        } catch(e) {}
     }
 }
 
 function saveStateToStorage() {
-    localStorage.setItem('routelogix_tat_state_v11', JSON.stringify(state));
+    const persistData = {
+        user: state.user,
+        transportMode: state.transportMode,
+        currentTab: state.currentTab,
+        mapTileStyle: state.mapTileStyle,
+        paymentMode: state.paymentMode,
+        routes: state.routes,
+        agenda: state.agenda,
+        expenses: state.expenses,
+        cashDenominations: state.cashDenominations,
+        isLiveTracking: state.isLiveTracking
+    };
+    localStorage.setItem('routelogix_tat_state_v12', JSON.stringify(persistData));
 }
 
 function initAuthScreen() {
@@ -181,7 +196,6 @@ function switchAuthTab(tab) {
 
 function handleLoginDirect() {
     const emailInput = document.getElementById('login-email');
-    const passInput = document.getElementById('login-pass');
     const email = emailInput ? emailInput.value.trim() : "conductor@routelogix.com";
     if (!email) {
         alert("Por favor ingrese su correo electrónico");
@@ -199,11 +213,9 @@ function handleLoginDirect() {
 function handleRegisterDirect() {
     const nameInput = document.getElementById('reg-name');
     const emailInput = document.getElementById('reg-email');
-    const passInput = document.getElementById('reg-pass');
     
     const name = nameInput ? nameInput.value.trim() : "";
     const email = emailInput ? emailInput.value.trim() : "";
-    const pass = passInput ? passInput.value.trim() : "";
 
     if (!name || !email) {
         alert("Por favor ingrese el nombre y correo electrónico");
@@ -500,7 +512,9 @@ function abrirModalClienteExistente() {
     const submenu = document.getElementById('stop-submenu');
     if (submenu) submenu.classList.add('hidden');
     if (state.agenda.length === 0) { alert("Agenda vacía"); switchTab('agenda'); return; }
-    const clientName = prompt("Cliente a añadir:\n" + state.agenda.map(c => "- " + c.name).join('\n'));
+    const clientName = prompt("Cliente a añadir:
+" + state.agenda.map(c => "- " + c.name).join('
+'));
     if (!clientName) return;
     const client = state.agenda.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()));
     if (!client) { alert("No encontrado"); return; }
