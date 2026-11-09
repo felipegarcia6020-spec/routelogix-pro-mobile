@@ -62,11 +62,6 @@
                     <label class="block text-neutral-400 mb-1">Contraseña</label>
                     <input type="password" id="reg-pass" placeholder="••••••••" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white">
                 </div>
-                <div>
-                    <label class="block text-neutral-400 mb-1">Foto del Conductor <span class="text-neutral-500 font-normal">(Opcional)</span></label>
-                    <input type="file" id="reg-photo-file" accept="image/*" onchange="handleDriverPhotoSelect(event)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2 text-white text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-neutral-800 file:text-neutral-300">
-                    <input type="hidden" id="reg-photo-base64">
-                </div>
                 <button type="button" onclick="handleRegisterDirect()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg transition active:scale-95">Crear Cuenta</button>
             </div>
         </div>
@@ -122,7 +117,6 @@
 
             <!-- WIDGET DE DESCARGA DE MAPA OFFLINE Y VELOCIDAD -->
             <div class="absolute top-16 right-3 z-30 flex flex-col items-end gap-2">
-                <!-- Velocidad GPS -->
                 <div id="gps-speed-widget" class="bg-neutral-900/95 backdrop-blur border border-neutral-700 px-3 py-2 rounded-xl shadow-xl flex items-center space-x-2 text-xs">
                     <div id="transport-icon-indicator" class="text-blue-400 font-bold">🚗</div>
                     <div>
@@ -131,7 +125,6 @@
                     </div>
                 </div>
 
-                <!-- Botón e indicador de almacenamiento offline de mapa -->
                 <button onclick="openOfflineDownloadModal()" class="bg-neutral-900/95 hover:bg-neutral-800 backdrop-blur border border-neutral-700 px-3 py-2 rounded-xl shadow-xl flex items-center space-x-2 text-xs transition">
                     <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-400"></i>
                     <div class="text-left">
@@ -197,17 +190,16 @@
                     <button onclick="activarRutaActual()" class="bg-neutral-800 hover:bg-neutral-700 text-blue-400 text-xs px-3 py-1.5 rounded-lg font-semibold border border-neutral-700">En Curso</button>
                 </div>
 
-                <!-- SELECTOR DE MEDIO DE TRANSPORTE -->
                 <div class="bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 space-y-1.5 text-xs">
                     <label class="block text-neutral-400 font-semibold flex items-center gap-1.5">
                         <i data-lucide="navigation" class="w-3.5 h-3.5 text-blue-400"></i> Medio de Transporte y Marcador GPS:
                     </label>
                     <select id="transport-mode-select" onchange="changeTransportMode(this.value)" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-2.5 text-white font-medium focus:outline-none focus:border-blue-500">
-                        <option value="walk">🚶 A pie (~5 km/h) - Muñeco caminando</option>
-                        <option value="bike">🚲 Bicicleta (~15 km/h) - Bicicleta GPS</option>
-                        <option value="moto">🏍️ Moto (~35 km/h) - Moto GPS</option>
-                        <option value="car">🚗 Carro pequeño (~30 km/h) - Automóvil GPS</option>
-                        <option value="truck">🚚 Camión (~20 km/h) - Camión de Reparto</option>
+                        <option value="walk">🚶 A pie (~5 km/h)</option>
+                        <option value="bike">🚲 Bicicleta (~15 km/h)</option>
+                        <option value="moto">🏍️ Moto (~35 km/h)</option>
+                        <option value="car">🚗 Carro pequeño (~30 km/h)</option>
+                        <option value="truck">🚚 Camión (~20 km/h)</option>
                     </select>
                 </div>
 

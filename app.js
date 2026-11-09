@@ -139,13 +139,13 @@ function updateNetworkStatus() {
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_tat_state_v8');
+    const saved = localStorage.getItem('routelogix_tat_state_v9');
     if (saved) {
         try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {}
     }
 }
 function saveStateToStorage() {
-    localStorage.setItem('routelogix_tat_state_v8', JSON.stringify(state));
+    localStorage.setItem('routelogix_tat_state_v9', JSON.stringify(state));
 }
 
 function initAuthScreen() {
@@ -163,6 +163,7 @@ function switchAuthTab(tab) {
     const btnReg = document.getElementById('auth-tab-register');
     const formLogin = document.getElementById('form-login');
     const formReg = document.getElementById('form-register');
+    if (!btnLogin || !btnReg || !formLogin || !formReg) return;
     if (tab === 'login') {
         btnLogin.className = "flex-1 py-2 rounded-lg bg-blue-600 text-white transition";
         btnReg.className = "flex-1 py-2 rounded-lg text-neutral-400 transition";
@@ -175,28 +176,33 @@ function switchAuthTab(tab) {
 }
 
 function handleLoginDirect() {
-    const email = document.getElementById('login-email').value.trim();
+    const emailInput = document.getElementById('login-email');
+    const email = emailInput ? emailInput.value.trim() : "conductor@routelogix.com";
     if (!email) {
         alert("Por favor ingrese su correo electrónico");
         return;
     }
     state.user = { name: email.split('@')[0], email: email, photo: null };
     saveStateToStorage();
-    document.getElementById('auth-screen').classList.add('hidden');
+    const authScreen = document.getElementById('auth-screen');
+    if (authScreen) authScreen.classList.add('hidden');
     updateDriverDisplay();
     renderAll();
 }
 
 function handleRegisterDirect() {
-    const name = document.getElementById('reg-name').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
+    const nameInput = document.getElementById('reg-name');
+    const emailInput = document.getElementById('reg-email');
+    const name = nameInput ? nameInput.value.trim() : "Carlos Pérez";
+    const email = emailInput ? emailInput.value.trim() : "carlos@routelogix.com";
     if (!name || !email) {
         alert("Por favor ingrese el nombre y correo electrónico");
         return;
     }
     state.user = { name, email, photo: null };
     saveStateToStorage();
-    document.getElementById('auth-screen').classList.add('hidden');
+    const authScreen = document.getElementById('auth-screen');
+    if (authScreen) authScreen.classList.add('hidden');
     updateDriverDisplay();
     renderAll();
 }
@@ -204,27 +210,35 @@ function handleRegisterDirect() {
 function logoutSession() {
     state.user = null;
     saveStateToStorage();
-    document.getElementById('auth-screen').classList.remove('hidden');
+    const authScreen = document.getElementById('auth-screen');
+    if (authScreen) authScreen.classList.remove('hidden');
 }
 
 function updateDriverDisplay() {
     if (!state.user) return;
-    document.getElementById('driver-name-display').innerText = state.user.name;
-    const initials = state.user.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-    document.getElementById('driver-initials').innerText = initials;
+    const nameDisplay = document.getElementById('driver-name-display');
+    const initialsDisplay = document.getElementById('driver-initials');
+    if (nameDisplay) nameDisplay.innerText = state.user.name;
+    if (initialsDisplay) {
+        const initials = state.user.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+        initialsDisplay.innerText = initials;
+    }
 }
 
 function openDriverEditModal() {
     if (!state.user) return;
-    document.getElementById('edit-driver-name').value = state.user.name;
-    document.getElementById('modal-driver').classList.remove('hidden');
+    const editName = document.getElementById('edit-driver-name');
+    const modalDriver = document.getElementById('modal-driver');
+    if (editName) editName.value = state.user.name;
+    if (modalDriver) modalDriver.classList.remove('hidden');
 }
 
 function saveDriverProfile() {
-    const name = document.getElementById('edit-driver-name').value;
-    if (name) state.user.name = name;
+    const editName = document.getElementById('edit-driver-name');
+    const modalDriver = document.getElementById('modal-driver');
+    if (editName && editName.value) state.user.name = editName.value;
     saveStateToStorage();
-    document.getElementById('modal-driver').classList.add('hidden');
+    if (modalDriver) modalDriver.classList.add('hidden');
     updateDriverDisplay();
 }
 
@@ -233,6 +247,7 @@ function switchTab(tabId) {
     ['map', 'routes', 'agenda', 'finances'].forEach(t => {
         const sec = document.getElementById(`view-${t}`);
         const btn = document.getElementById(`nav-btn-${t}`);
+        if (!sec || !btn) return;
         if (t === tabId) {
             sec.classList.remove('hidden');
             btn.className = "flex flex-col items-center justify-center text-blue-500 transition";
@@ -246,6 +261,8 @@ function switchTab(tabId) {
 }
 
 function initMap() {
+    const mapEl = document.getElementById('map');
+    if (!mapEl) return;
     state.map = L.map('map', { zoomControl: false }).setView([4.6097, -74.0817], 14);
     setMapTileStyle('standard');
     setTimeout(() => state.map.invalidateSize(), 300);
@@ -288,14 +305,17 @@ function setMapTileStyle(styleName) {
         const btn = document.getElementById(`style-${s}`);
         if (btn) btn.className = s === styleName ? "px-2.5 py-1 rounded-lg bg-blue-600 text-white font-medium" : "px-2.5 py-1 rounded-lg text-neutral-300 font-medium";
     });
-    if (currentTileLayerObj) state.map.removeLayer(currentTileLayerObj);
-    currentTileLayerObj = new L.OfflineTileLayer(tileUrls[styleName], { maxZoom: 19, subdomains: 'abc' });
-    currentTileLayerObj.addTo(state.map);
+    if (currentTileLayerObj && state.map) state.map.removeLayer(currentTileLayerObj);
+    if (state.map) {
+        currentTileLayerObj = new L.OfflineTileLayer(tileUrls[styleName], { maxZoom: 19, subdomains: 'abc' });
+        currentTileLayerObj.addTo(state.map);
+    }
 }
 
 function openOfflineDownloadModal() {
     updateOfflineTilesCountDisplay();
-    document.getElementById('modal-offline-download').classList.remove('hidden');
+    const modal = document.getElementById('modal-offline-download');
+    if (modal) modal.classList.remove('hidden');
 }
 
 async function startDownloadingRouteMapTiles() {
@@ -307,8 +327,8 @@ async function startDownloadingRouteMapTiles() {
     const progContainer = document.getElementById('download-progress-container');
     const progressBar = document.getElementById('download-progress-bar');
     const syncStatus = document.getElementById('offline-sync-status');
-    progContainer.classList.remove('hidden');
-    syncStatus.innerText = "Descargando tiles...";
+    if (progContainer) progContainer.classList.remove('hidden');
+    if (syncStatus) syncStatus.innerText = "Descargando tiles...";
 
     let lats = activeRoute.stops.map(s => s.lat);
     let lngs = activeRoute.stops.map(s => s.lng);
@@ -335,12 +355,12 @@ async function startDownloadingRouteMapTiles() {
         } catch(e) {}
         downloaded++;
         let pct = Math.round((downloaded / total) * 100);
-        progressBar.style.width = pct + '%';
-        syncStatus.innerText = `Descargados ${downloaded} / ${total} (${pct}%)`;
+        if (progressBar) progressBar.style.width = pct + '%';
+        if (syncStatus) syncStatus.innerText = `Descargados ${downloaded} / ${total} (${pct}%)`;
     }
-    syncStatus.innerText = "¡Mapa guardado offline!";
+    if (syncStatus) syncStatus.innerText = "¡Mapa guardado offline!";
     updateOfflineTilesCountDisplay();
-    setTimeout(() => progContainer.classList.add('hidden'), 3000);
+    setTimeout(() => { if (progContainer) progContainer.classList.add('hidden'); }, 3000);
 }
 
 function latLngToTileCoord(lat, lng, zoom) {
@@ -397,6 +417,7 @@ function updateLiveGPSMarker(lat, lng, speed) {
 function toggleTrackingLive() {
     state.isLiveTracking = !state.isLiveTracking;
     const btn = document.getElementById('tracking-toggle-btn');
+    if (!btn) return;
     if (state.isLiveTracking) {
         btn.className = "absolute bottom-20 right-4 z-20 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-xl font-bold text-xs flex items-center gap-1.5 active:scale-95 transition";
         btn.innerHTML = '<i data-lucide="radio" class="w-4 h-4 animate-pulse"></i> <span>GPS Vivo: ON</span>';
@@ -409,14 +430,15 @@ function toggleTrackingLive() {
 }
 
 function centrarGPS() {
-    if (navigator.geolocation) {
+    if (navigator.geolocation && state.map) {
         navigator.geolocation.getCurrentPosition(pos => state.map.setView([pos.coords.latitude, pos.coords.longitude], 16), () => {});
     }
 }
 
 async function searchMapAddress() {
-    const q = document.getElementById('map-search-input').value;
-    if (!q) return;
+    const input = document.getElementById('map-search-input');
+    const q = input ? input.value : '';
+    if (!q || !state.map) return;
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`);
         const data = await res.json();
@@ -424,31 +446,48 @@ async function searchMapAddress() {
     } catch(e) {}
 }
 
-function toggleStopMenu() { document.getElementById('stop-submenu').classList.toggle('hidden'); }
+function toggleStopMenu() {
+    const submenu = document.getElementById('stop-submenu');
+    if (submenu) submenu.classList.toggle('hidden');
+}
+
 function abrirModalParadaCentro() {
-    document.getElementById('stop-submenu').classList.add('hidden');
+    const submenu = document.getElementById('stop-submenu');
+    if (submenu) submenu.classList.add('hidden');
+    if (!state.map) return;
     const center = state.map.getCenter();
-    document.getElementById('parada-nombre').value = "";
-    document.getElementById('parada-direccion').value = `Lat: ${center.lat.toFixed(4)}, Lng: ${center.lng.toFixed(4)}`;
-    document.getElementById('parada-valor').value = "150000";
-    document.getElementById('modal-parada').classList.remove('hidden');
+    const nombre = document.getElementById('parada-nombre');
+    const direccion = document.getElementById('parada-direccion');
+    const valor = document.getElementById('parada-valor');
+    const modal = document.getElementById('modal-parada');
+    if (nombre) nombre.value = "";
+    if (direccion) direccion.value = `Lat: ${center.lat.toFixed(4)}, Lng: ${center.lng.toFixed(4)}`;
+    if (valor) valor.value = "150000";
+    if (modal) modal.classList.remove('hidden');
 }
 
 function guardarNuevaParada() {
-    const name = document.getElementById('parada-nombre').value;
-    const address = document.getElementById('parada-direccion').value;
-    const value = parseFloat(document.getElementById('parada-valor').value) || 0;
+    const nombre = document.getElementById('parada-nombre');
+    const direccion = document.getElementById('parada-direccion');
+    const valor = document.getElementById('parada-valor');
+    const modal = document.getElementById('modal-parada');
+
+    const name = nombre ? nombre.value : '';
+    const address = direccion ? direccion.value : '';
+    const value = valor ? parseFloat(valor.value) || 0 : 0;
+
     if (!name) { alert("Ingrese nombre"); return; }
-    const center = state.map.getCenter();
+    const center = state.map ? state.map.getCenter() : { lat: 4.6097, lng: -74.0817 };
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
     activeRoute.stops.push({ id: 'stop-' + Date.now(), name, address: address || 'Mapa', lat: center.lat, lng: center.lng, status: 'pending', value, paymentMethod: 'cash', evidenceNotes: '' });
     saveStateToStorage();
-    document.getElementById('modal-parada').classList.add('hidden');
+    if (modal) modal.classList.add('hidden');
     renderAll();
 }
 
 function abrirModalClienteExistente() {
-    document.getElementById('stop-submenu').classList.add('hidden');
+    const submenu = document.getElementById('stop-submenu');
+    if (submenu) submenu.classList.add('hidden');
     if (state.agenda.length === 0) { alert("Agenda vacía"); switchTab('agenda'); return; }
     const clientName = prompt("Cliente a añadir:
 " + state.agenda.map(c => "- " + c.name).join('
@@ -523,24 +562,39 @@ function renderMapMarkersAndPolyline() {
 function renderActiveRouteCard() {
     const activeRoute = state.routes.find(r => r.active) || state.routes[0];
     if (!activeRoute) return;
-    document.getElementById('route-active-title').innerText = activeRoute.name;
-    document.getElementById('transport-mode-select').value = activeRoute.transportMode || 'car';
+
+    const titleEl = document.getElementById('route-active-title');
+    const selectEl = document.getElementById('transport-mode-select');
+    if (titleEl) titleEl.innerText = activeRoute.name;
+    if (selectEl) selectEl.value = activeRoute.transportMode || 'car';
+
     let totalDist = 0;
     for (let i = 0; i < activeRoute.stops.length - 1; i++) {
         totalDist += Math.hypot(activeRoute.stops[i+1].lat - activeRoute.stops[i].lat, activeRoute.stops[i+1].lng - activeRoute.stops[i].lng) * 111;
     }
     let money = activeRoute.stops.reduce((acc, s) => acc + (s.status === 'delivered' ? s.value : 0), 0);
-    document.getElementById('metric-km').innerText = totalDist.toFixed(1) + ' km';
-    document.getElementById('metric-time').innerText = Math.round(totalDist / 30 * 60 + activeRoute.stops.length * 4) + ' min';
-    document.getElementById('metric-clients').innerText = activeRoute.stops.length;
-    document.getElementById('metric-money').innerText = '$' + money.toLocaleString();
-    document.getElementById('count-pending').innerText = activeRoute.stops.filter(s => s.status === 'pending').length;
-    document.getElementById('count-delivered').innerText = activeRoute.stops.filter(s => s.status === 'delivered').length;
-    document.getElementById('count-rejected').innerText = activeRoute.stops.filter(s => s.status === 'rejected').length;
+
+    const mKm = document.getElementById('metric-km');
+    const mTime = document.getElementById('metric-time');
+    const mClients = document.getElementById('metric-clients');
+    const mMoney = document.getElementById('metric-money');
+    const cPending = document.getElementById('count-pending');
+    const cDelivered = document.getElementById('count-delivered');
+    const cRejected = document.getElementById('count-rejected');
+
+    if (mKm) mKm.innerText = totalDist.toFixed(1) + ' km';
+    if (mTime) mTime.innerText = Math.round(totalDist / 30 * 60 + activeRoute.stops.length * 4) + ' min';
+    if (mClients) mClients.innerText = activeRoute.stops.length;
+    if (mMoney) mMoney.innerText = '$' + money.toLocaleString();
+    if (cPending) cPending.innerText = activeRoute.stops.filter(s => s.status === 'pending').length;
+    if (cDelivered) cDelivered.innerText = activeRoute.stops.filter(s => s.status === 'delivered').length;
+    if (cRejected) cRejected.innerText = activeRoute.stops.filter(s => s.status === 'rejected').length;
 }
 
 function renderRoutesList() {
-    document.getElementById('routes-list-container').innerHTML = state.routes.map(r => `
+    const container = document.getElementById('routes-list-container');
+    if (!container) return;
+    container.innerHTML = state.routes.map(r => `
         <div class="bg-neutral-900 border ${r.active ? 'border-blue-500' : 'border-neutral-800'} rounded-xl p-3 flex justify-between items-center text-xs">
             <div><strong class="text-white">${r.name}</strong><p class="text-[10px] text-neutral-400">${r.stops.length} paradas</p></div>
             ${!r.active ? `<button onclick="makeRouteActive('${r.id}')" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-lg font-semibold">Activar</button>` : '<span class="text-emerald-400 font-bold">Activa</span>'}
@@ -558,27 +612,38 @@ function openEvidenceModal(stopId) {
     let stop = null;
     for (let r of state.routes) { stop = r.stops.find(s => s.id === stopId); if (stop) break; }
     if (!stop) return;
-    document.getElementById('evidence-stop-id').value = stop.id;
-    document.getElementById('evidence-status').value = stop.status === 'pending' ? 'delivered' : stop.status;
-    document.getElementById('evidence-notes').value = stop.evidenceNotes || '';
-    document.getElementById('modal-evidence').classList.remove('hidden');
+    const stopIdInput = document.getElementById('evidence-stop-id');
+    const statusSelect = document.getElementById('evidence-status');
+    const notesInput = document.getElementById('evidence-notes');
+    const modal = document.getElementById('modal-evidence');
+    if (stopIdInput) stopIdInput.value = stop.id;
+    if (statusSelect) statusSelect.value = stop.status === 'pending' ? 'delivered' : stop.status;
+    if (notesInput) notesInput.value = stop.evidenceNotes || '';
+    if (modal) modal.classList.remove('hidden');
 }
 
 function saveEvidence() {
-    const stopId = document.getElementById('evidence-stop-id').value;
-    const status = document.getElementById('evidence-status').value;
-    const notes = document.getElementById('evidence-notes').value;
+    const stopIdInput = document.getElementById('evidence-stop-id');
+    const statusSelect = document.getElementById('evidence-status');
+    const notesInput = document.getElementById('evidence-notes');
+    const modal = document.getElementById('modal-evidence');
+    if (!stopIdInput) return;
+    const stopId = stopIdInput.value;
+    const status = statusSelect ? statusSelect.value : 'delivered';
+    const notes = notesInput ? notesInput.value : '';
     for (let r of state.routes) {
         let stop = r.stops.find(s => s.id === stopId);
         if (stop) { stop.status = status; stop.evidenceNotes = notes; break; }
     }
     saveStateToStorage();
-    document.getElementById('modal-evidence').classList.add('hidden');
+    if (modal) modal.classList.add('hidden');
     renderAll();
 }
 
 function renderAgendaList() {
-    document.getElementById('lista-agenda').innerHTML = state.agenda.map(c => `
+    const container = document.getElementById('lista-agenda');
+    if (!container) return;
+    container.innerHTML = state.agenda.map(c => `
         <div class="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex justify-between items-center text-xs">
             <div><strong class="text-white">${c.name}</strong><p class="text-[10px] text-neutral-400">${c.address}</p></div>
             <button onclick="addClientToActiveRoute('${c.id}')" class="bg-blue-600 text-white px-2.5 py-1.5 rounded-xl">+</button>
@@ -586,16 +651,27 @@ function renderAgendaList() {
     `).join('');
 }
 
-function openClientModal() { document.getElementById('modal-client').classList.remove('hidden'); }
+function openClientModal() {
+    const modal = document.getElementById('modal-client');
+    if (modal) modal.classList.remove('hidden');
+}
+
 function handleClientSubmitDirect() {
-    const name = document.getElementById('client-name').value.trim();
-    const address = document.getElementById('client-address').value.trim();
-    const phone = document.getElementById('client-phone').value.trim();
-    const obs = document.getElementById('client-obs').value.trim();
+    const nameInput = document.getElementById('client-name');
+    const addressInput = document.getElementById('client-address');
+    const phoneInput = document.getElementById('client-phone');
+    const obsInput = document.getElementById('client-obs');
+    const modal = document.getElementById('modal-client');
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    const address = addressInput ? addressInput.value.trim() : '';
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+    const obs = obsInput ? obsInput.value.trim() : '';
+
     if (!name || !address) { alert("Ingrese nombre y dirección"); return; }
     state.agenda.push({ id: 'c-' + Date.now(), name, address, phone, obs });
     saveStateToStorage();
-    document.getElementById('modal-client').classList.add('hidden');
+    if (modal) modal.classList.add('hidden');
     renderAll();
 }
 
@@ -615,8 +691,10 @@ function setPaymentMode(mode) {
 }
 
 function initDenominationsUI() {
+    const container = document.getElementById('denominations-container');
+    if (!container) return;
     const denoms = [{k:'100000',l:'$100.000'},{k:'50000',l:'$50.000'},{k:'20000',l:'$20.000'},{k:'10000',l:'$10.000'},{k:'5000',l:'$5.000'},{k:'2000',l:'$2.000'},{k:'1000',l:'$1.000'},{k:'coins',l:'Monedas'}];
-    document.getElementById('denominations-container').innerHTML = denoms.map(d => `
+    container.innerHTML = denoms.map(d => `
         <div class="flex justify-between items-center bg-neutral-950 p-2 rounded-xl border border-neutral-800 text-xs">
             <span class="text-neutral-300">${d.l}</span>
             <div class="flex items-center space-x-2">
@@ -630,7 +708,8 @@ function initDenominationsUI() {
 
 function updateDenom(k, delta) {
     state.cashDenominations[k] = Math.max(0, (state.cashDenominations[k] || 0) + delta);
-    document.getElementById(`denom-count-${k}`).innerText = state.cashDenominations[k];
+    const countEl = document.getElementById(`denom-count-${k}`);
+    if (countEl) countEl.innerText = state.cashDenominations[k];
     saveStateToStorage();
     renderFinances();
 }
@@ -643,8 +722,10 @@ function resetCashCounter() {
 }
 
 function addExpense() {
-    let concept = document.getElementById('expense-concept').value;
-    let amount = parseFloat(document.getElementById('expense-amount').value);
+    const conceptInput = document.getElementById('expense-concept');
+    const amountInput = document.getElementById('expense-amount');
+    const concept = conceptInput ? conceptInput.value : '';
+    const amount = amountInput ? parseFloat(amountInput.value) : NaN;
     if (!concept || isNaN(amount)) return;
     state.expenses.push({ id: 'e-' + Date.now(), concept, amount });
     saveStateToStorage();
@@ -653,32 +734,54 @@ function addExpense() {
 }
 
 function renderExpenses() {
-    document.getElementById('expenses-list').innerHTML = state.expenses.map(e => `
+    const container = document.getElementById('expenses-list');
+    if (!container) return;
+    container.innerHTML = state.expenses.map(e => `
         <div class="flex justify-between bg-neutral-950 p-2 rounded-xl text-xs"><span>${e.concept}</span><span class="text-rose-400">-$${e.amount.toLocaleString()}</span></div>
     `).join('');
 }
 
 function renderFinances() {
     let cash = Object.keys(state.cashDenominations).reduce((acc, k) => acc + (state.cashDenominations[k] || 0) * (k === 'coins' ? 500 : parseInt(k)), 0);
-    document.getElementById('counter-total-display').innerText = '$' + cash.toLocaleString();
+    
+    let counterDisplay = document.getElementById('counter-total-display');
+    if (counterDisplay) counterDisplay.innerText = '$' + cash.toLocaleString();
+
     let facturado = 0, transfer = 0;
     state.routes.forEach(r => r.stops.forEach(s => { if (s.status === 'delivered') { facturado += s.value; if (s.paymentMethod === 'transfer') transfer += s.value; } }));
     let gastos = state.expenses.reduce((acc, e) => acc + e.amount, 0);
     let neto = facturado - gastos;
-    document.getElementById('summary-facturado').innerText = '$' + facturado.toLocaleString();
-    document.getElementById('summary-fisico').innerText = '$' + cash.toLocaleString();
-    document.getElementById('summary-transfer').innerText = '$' + transfer.toLocaleString();
-    document.getElementById('summary-gastos').innerText = '$' + gastos.toLocaleString();
-    document.getElementById('summary-neto-total').innerText = '$' + neto.toLocaleString();
-    document.getElementById('final-balance-badge').innerText = '$' + neto.toLocaleString() + ' Neto';
+
+    const sf = document.getElementById('summary-facturado');
+    const sfi = document.getElementById('summary-fisico');
+    const st = document.getElementById('summary-transfer');
+    const sg = document.getElementById('summary-gastos');
+    const snt = document.getElementById('summary-neto-total');
+    const ffb = document.getElementById('final-balance-badge');
+
+    if (sf) sf.innerText = '$' + facturado.toLocaleString();
+    if (sfi) sfi.innerText = '$' + cash.toLocaleString();
+    if (st) st.innerText = '$' + transfer.toLocaleString();
+    if (sg) sg.innerText = '$' + gastos.toLocaleString();
+    if (snt) snt.innerText = '$' + neto.toLocaleString();
+    if (ffb) ffb.innerText = '$' + neto.toLocaleString() + ' Neto';
 }
 
-function openCreateRouteModal() { document.getElementById('modal-route').classList.add('flex'); document.getElementById('modal-route').classList.remove('hidden'); }
+function openCreateRouteModal() {
+    const modal = document.getElementById('modal-route');
+    if (modal) {
+        modal.classList.add('flex');
+        modal.classList.remove('hidden');
+    }
+}
+
 function createNewRoute() {
-    let name = document.getElementById('new-route-name').value;
+    const nameInput = document.getElementById('new-route-name');
+    const modal = document.getElementById('modal-route');
+    const name = nameInput ? nameInput.value : '';
     if (!name) return;
     state.routes.push({ id: 'r-' + Date.now(), name, active: false, transportMode: 'car', stops: [] });
     saveStateToStorage();
-    document.getElementById('modal-route').classList.add('hidden');
+    if (modal) modal.classList.add('hidden');
     renderAll();
 }
