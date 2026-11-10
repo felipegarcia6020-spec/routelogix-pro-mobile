@@ -1,4 +1,4 @@
-/* RouteLogix Pro Enterprise - v27 Stylesheet */
+/* RouteLogix Pro Enterprise - v28 Stylesheet */
 body {
     font-family: system-ui, -apple-system, sans-serif;
 }
@@ -19,7 +19,6 @@ body {
 .map-crosshair {
     pointer-events: none;
 }
-/* Filtro CSS inteligente para modo oscuro en mapas sin requerir API Keys de pago */
 .dark-map-tiles .leaflet-tile-pane {
     filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
 }

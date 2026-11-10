@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RouteLogix Pro | Enterprise v27</title>
+    <title>RouteLogix Pro | Enterprise v28</title>
     
     <meta name="theme-color" content="#030712">
     <meta name="mobile-web-app-capable" content="yes">
@@ -27,7 +27,7 @@
             <div class="text-center space-y-2">
                 <div class="w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 rounded-2xl flex items-center justify-center mx-auto mb-2 font-black text-2xl shadow-lg shadow-cyan-500/30">RL</div>
                 <h1 class="text-2xl font-black text-white tracking-wider bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">ROUTELOGIX PRO</h1>
-                <p class="text-xs text-neutral-400 font-medium">Enterprise v27 • Licenciamiento Google Sheets</p>
+                <p class="text-xs text-neutral-400 font-medium">Enterprise v28 • Licenciamiento Google Sheets</p>
             </div>
 
             <div id="form-login" class="space-y-3.5 text-xs">
@@ -89,7 +89,8 @@
 
         <!-- MAP VIEW -->
         <section id="view-map" class="flex-1 flex flex-col relative h-full">
-            <div class="absolute top-3 left-3 right-16 z-30 flex gap-2">
+            <!-- Barra de Búsqueda Superior -->
+            <div class="absolute top-3 left-3 right-3 z-30 flex gap-2">
                 <div class="flex-1 bg-neutral-900/90 backdrop-blur-md border border-neutral-700/80 rounded-2xl flex items-center px-3.5 py-2.5 shadow-2xl">
                     <i data-lucide="search" class="w-4 h-4 text-cyan-400 mr-2.5 shrink-0"></i>
                     <input type="text" id="map-search-input" placeholder="Buscar dirección o lugar..." onkeydown="if(event.key==='Enter') searchMapAddress()" class="w-full bg-transparent text-xs text-white focus:outline-none placeholder-neutral-500 font-medium">
@@ -97,30 +98,27 @@
                 <button onclick="searchMapAddress()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 px-4 rounded-2xl shadow-lg shadow-cyan-500/20 flex items-center justify-center text-xs font-bold transition">Ir</button>
             </div>
 
-            <div class="absolute top-16 left-3 z-30 flex gap-1 bg-neutral-900/90 backdrop-blur-md p-1 rounded-2xl border border-neutral-700/80 text-[10px] shadow-2xl font-bold">
-                <button onclick="setMapTileStyle('standard')" id="style-standard" class="px-3 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 transition">Clásico</button>
-                <button onclick="setMapTileStyle('dark')" id="style-dark" class="px-3 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Oscuro (OpenSource)</button>
-                <button onclick="setMapTileStyle('satellite')" id="style-satellite" class="px-3 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Satélite</button>
-            </div>
-
-            <div class="absolute top-16 right-3 z-30 flex flex-col items-end gap-2.5">
-                <div id="gps-speed-widget" class="bg-neutral-900/90 backdrop-blur-md border border-cyan-500/30 px-3.5 py-2.5 rounded-2xl shadow-2xl flex items-center space-x-2.5 text-xs">
-                    <div id="transport-icon-indicator" class="text-cyan-400 text-base">🚗</div>
-                    <div>
-                        <div class="text-[9px] text-neutral-400 uppercase font-black tracking-wider">Velocidad GPS</div>
-                        <div id="live-speed-display" class="text-white font-black text-sm">0.0 km/h</div>
-                    </div>
+            <!-- Estilos de Mapa y Widgets Superiores (Organizados en una barra limpia) -->
+            <div class="absolute top-16 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
+                <!-- Selector de Estilo de Mapa -->
+                <div class="flex gap-1 bg-neutral-900/90 backdrop-blur-md p-1 rounded-2xl border border-neutral-700/80 text-[10px] shadow-2xl font-bold pointer-events-auto">
+                    <button onclick="setMapTileStyle('standard')" id="style-standard" class="px-2.5 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 transition">Clásico</button>
+                    <button onclick="setMapTileStyle('dark')" id="style-dark" class="px-2.5 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Oscuro</button>
+                    <button onclick="setMapTileStyle('satellite')" id="style-satellite" class="px-2.5 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Satélite</button>
                 </div>
 
-                <button onclick="openOfflineDownloadModal()" class="bg-neutral-900/90 hover:bg-neutral-800 backdrop-blur-md border border-emerald-500/30 px-3.5 py-2.5 rounded-2xl shadow-2xl flex items-center space-x-2.5 text-xs transition group">
-                    <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-400 group-hover:scale-110 transition"></i>
-                    <div class="text-left">
-                        <div class="text-[9px] text-neutral-400 uppercase font-black tracking-wider">Mapa Offline</div>
-                        <div id="offline-map-status-text" class="text-emerald-400 font-black text-[11px]">Ver Estado</div>
+                <!-- Widgets de GPS y Offline (Compactos a la derecha) -->
+                <div class="flex flex-col items-end gap-1.5 pointer-events-auto">
+                    <div id="gps-speed-widget" class="bg-neutral-900/90 backdrop-blur-md border border-cyan-500/30 px-3 py-1.5 rounded-xl shadow-xl flex items-center space-x-2 text-xs">
+                        <div id="transport-icon-indicator" class="text-cyan-400 text-sm">🚗</div>
+                        <div>
+                            <div id="live-speed-display" class="text-white font-black text-xs">0.0 km/h</div>
+                        </div>
                     </div>
-                </button>
+                </div>
             </div>
 
+            <!-- Mapa -->
             <div id="map" class="w-full flex-1 absolute inset-0 z-0"></div>
             
             <div class="map-crosshair absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 flex items-center justify-center">
@@ -128,14 +126,20 @@
                 <div class="absolute w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_12px_#06b6d4]"></div>
             </div>
 
-            <button onclick="centrarGPS()" class="absolute bottom-20 left-4 z-20 w-12 h-12 bg-neutral-900/90 backdrop-blur-md border border-neutral-700/80 rounded-2xl flex items-center justify-center text-cyan-400 shadow-2xl active:scale-95 transition" title="Mi Ubicación GPS">
-                <i data-lucide="navigation" class="w-5 h-5"></i>
-            </button>
+            <!-- Botones Flotantes Laterales (GPS y Mapa Offline) - Ubicados limpiamente arriba de la botonera inferior -->
+            <div class="absolute bottom-20 right-4 z-20 flex flex-col gap-2">
+                <button onclick="openOfflineDownloadModal()" class="w-11 h-11 bg-neutral-900/90 hover:bg-neutral-800 backdrop-blur-md border border-emerald-500/40 rounded-2xl flex items-center justify-center text-emerald-400 shadow-2xl transition" title="Mapa Offline">
+                    <i data-lucide="download-cloud" class="w-5 h-5"></i>
+                </button>
+                <button onclick="centrarGPS()" class="w-11 h-11 bg-neutral-900/90 hover:bg-neutral-800 backdrop-blur-md border border-neutral-700/80 rounded-2xl flex items-center justify-center text-cyan-400 shadow-2xl active:scale-95 transition" title="Mi Ubicación GPS">
+                    <i data-lucide="navigation" class="w-5 h-5"></i>
+                </button>
+                <button onclick="toggleTrackingLive()" id="tracking-toggle-btn" class="w-11 h-11 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 rounded-2xl shadow-2xl flex items-center justify-center active:scale-95 transition" title="GPS Vivo: ON">
+                    <i data-lucide="radio" class="w-5 h-5 animate-pulse"></i>
+                </button>
+            </div>
 
-            <button onclick="toggleTrackingLive()" id="tracking-toggle-btn" class="absolute bottom-20 right-4 z-20 px-4 py-3 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 rounded-2xl shadow-2xl font-black text-xs flex items-center gap-2 active:scale-95 transition">
-                <i data-lucide="radio" class="w-4 h-4 animate-pulse"></i> <span>GPS Vivo: ON</span>
-            </button>
-
+            <!-- Botonera Inferior del Mapa -->
             <div class="absolute bottom-4 left-0 right-0 z-20 px-4 flex gap-2.5">
                 <div class="relative flex-1">
                     <button onclick="toggleStopMenu()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black py-3.5 px-4 rounded-2xl shadow-2xl shadow-cyan-500/20 flex items-center justify-center gap-2 border border-cyan-400/40 text-xs active:scale-95 transition">
@@ -321,7 +325,6 @@
     </nav>
 
     <!-- MODALS -->
-    <!-- MODAL CONFIG GOOGLE SHEETS LICENSING -->
     <div id="modal-sheets-config" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <h3 class="font-black text-sm text-cyan-400">Control de Licencias (Google Sheets)</h3>
@@ -391,7 +394,6 @@
         </div>
     </div>
 
-    <!-- MODAL ADD STOP -->
     <div id="modal-route-add-stop" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <h3 class="font-black text-sm text-cyan-400">Añadir Parada a la Ruta</h3>
@@ -423,7 +425,6 @@
         </div>
     </div>
 
-    <!-- MODAL EVIDENCE & QR PAYMENT -->
     <div id="modal-evidence" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-md rounded-3xl p-6 space-y-3.5 shadow-2xl text-xs max-h-[95vh] overflow-y-auto">
             <h3 class="font-black text-sm text-cyan-400">Gestión de Entrega, Pago, Foto & Firma</h3>
@@ -507,7 +508,6 @@
         </div>
     </div>
 
-    <!-- MODAL CONFIGURACION DE PAGOS (QR y CUENTAS) -->
     <div id="modal-payment-config" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <h3 class="font-black text-sm text-cyan-400">Configurar QR y Cuenta Bancaria</h3>
@@ -536,7 +536,6 @@
         </div>
     </div>
 
-    <!-- MODAL CLIENT & CARTERA -->
     <div id="modal-client" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <h3 class="font-black text-sm text-cyan-400">Cliente & Control de Cartera</h3>
@@ -557,7 +556,6 @@
         </div>
     </div>
 
-    <!-- MODAL NUEVA RUTA -->
     <div id="modal-route" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <h3 class="font-black text-sm text-cyan-400">Crear Nueva Ruta TaT</h3>
@@ -569,7 +567,6 @@
         </div>
     </div>
 
-    <!-- MODAL PARADA MAPA -->
     <div id="modal-parada" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <h3 class="font-black text-sm text-cyan-400">Añadir Parada desde Mapa</h3>

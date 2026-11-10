@@ -1,4 +1,4 @@
-/* RouteLogix Pro Enterprise - v27 Application Logic */
+/* RouteLogix Pro Enterprise - v28 Application Logic */
 
 let deferredPrompt = null;
 
@@ -88,7 +88,7 @@ let currentConfigQRBase64 = null;
 function initIndexedDB() {
     return new Promise((resolve) => {
         try {
-            const request = indexedDB.open('RouteLogixEnterpriseDB_v27', 1);
+            const request = indexedDB.open('RouteLogixEnterpriseDB_v28', 1);
             request.onerror = () => resolve(null);
             request.onsuccess = () => {
                 db = request.result;
@@ -143,13 +143,8 @@ function countTilesInDB() {
 
 async function updateOfflineTilesCountDisplay() {
     const count = await countTilesInDB();
-    const statusText = document.getElementById('offline-map-status-text');
     const countText = document.getElementById('offline-tiles-count');
     if (countText) countText.innerText = count + ' tiles';
-    if (statusText) {
-        statusText.innerText = count > 0 ? `${count} tiles offline` : "Sin descargar";
-        statusText.className = count > 0 ? "text-emerald-400 font-bold text-[11px]" : "text-amber-400 font-bold text-[11px]";
-    }
 }
 
 function enqueueOutboxAction(actionType, payload) {
@@ -216,12 +211,12 @@ function updateNetworkStatus() {
     } else {
         badge.className = "px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1";
         dot.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
-        text.innerText = "Offline (Outbox Activo)";
+        text.innerText = "Offline";
     }
 }
 
 function loadStateFromStorage() {
-    const saved = localStorage.getItem('routelogix_enterprise_state_v27');
+    const saved = localStorage.getItem('routelogix_enterprise_state_v28');
     if (saved) {
         try { 
             const parsed = JSON.parse(saved);
@@ -246,7 +241,7 @@ function saveStateToStorage() {
         cashDenominations: state.cashDenominations,
         isLiveTracking: state.isLiveTracking
     };
-    localStorage.setItem('routelogix_enterprise_state_v27', JSON.stringify(persistData));
+    localStorage.setItem('routelogix_enterprise_state_v28', JSON.stringify(persistData));
 }
 
 function initAuthScreen() {
@@ -296,18 +291,16 @@ async function handleLoginWithSheetsValidation() {
 
     if (errorMsg) errorMsg.classList.add('hidden');
 
-    // Si hay una URL de Google Sheets configurada, consultamos el backend para verificar si el usuario está activo o vetado
     if (state.sheetsUrl) {
         try {
             const btn = document.querySelector('#form-login button');
-            if (btn) btn.innerText = "Verificando licencia en Google Sheets...";
+            if (btn) btn.innerText = "Verificando licencia...";
             
             const res = await fetch(`${state.sheetsUrl}?email=${encodeURIComponent(email)}`);
             const data = await res.json();
             
             if (btn) btn.innerText = "Verificar Licencia e Iniciar";
             
-            // Esperamos que el script devuelva { status: 'active' } o { status: 'blocked' } o { status: 'not_found' }
             if (data.status === 'blocked' || data.status === 'inactive') {
                 if (errorMsg) {
                     errorMsg.innerText = "❌ Licencia vencida o usuario vetado por el administrador.";
@@ -316,17 +309,14 @@ async function handleLoginWithSheetsValidation() {
                 return;
             } else if (data.status === 'not_found') {
                 if (errorMsg) {
-                    errorMsg.innerText = "⚠️ Este correo no está registrado en la base de datos de pagos.";
+                    errorMsg.innerText = "⚠️ Este correo no está registrado en la base de datos.";
                     errorMsg.classList.remove('hidden');
                 }
                 return;
             }
-        } catch(e) {
-            console.warn("No se pudo conectar al Google Sheets, permitiendo modo offline temporal o validación local:", e);
-        }
+        } catch(e) {}
     }
 
-    // Si pasa la validación o está en modo local sin URL de sheets configurada
     state.user = { name, email, photo: null };
     saveStateToStorage();
     
@@ -338,19 +328,13 @@ async function handleLoginWithSheetsValidation() {
 }
 
 function logoutSession() {
-    if (!confirm("⚠️ ¿Desea cambiar de conductor en este móvil corporativo?\n\nSe cerrará la sesión actual para permitir registrar al nuevo operario.")) {
+    if (!confirm("⚠️ ¿Desea cambiar de conductor en este móvil corporativo?\n\nSe cerrará la sesión actual para registrar al nuevo operario.")) {
         return;
     }
     state.user = null;
-    localStorage.removeItem('routelogix_enterprise_state_v27');
+    localStorage.removeItem('routelogix_enterprise_state_v28');
     const authScreen = document.getElementById('auth-screen');
-    if (authScreen) {
-        authScreen.classList.remove('hidden');
-    }
-    const nameInput = document.getElementById('login-name');
-    const emailInput = document.getElementById('login-email');
-    if (nameInput) nameInput.value = '';
-    if (emailInput) emailInput.value = '';
+    if (authScreen) authScreen.classList.remove('hidden');
 }
 
 function updateDriverDisplay() {
@@ -403,15 +387,15 @@ function initMap() {
     const mapEl = document.getElementById('map');
     if (!mapEl) return;
     state.map = L.map('map', { zoomControl: false }).setView([4.6097, -74.0817], 14);
-    setMapTileStyle('standard');
+    setMapTileStyle(state.mapTileStyle || 'standard');
 
     state.map.on('dragstart zoomstart', () => {
         if (state.isLiveTracking) {
             state.isLiveTracking = false;
             const btn = document.getElementById('tracking-toggle-btn');
             if (btn) {
-                btn.className = "absolute bottom-20 right-4 z-20 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-2xl shadow-2xl font-bold text-xs flex items-center gap-2 active:scale-95 transition";
-                btn.innerHTML = '<i data-lucide="radio-off" class="w-4 h-4"></i> <span>GPS Vivo: OFF</span>';
+                btn.className = "w-11 h-11 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded-2xl shadow-2xl flex items-center justify-center transition";
+                btn.title = "GPS Vivo: OFF";
                 try { lucide.createIcons(); } catch(e){}
             }
         }
@@ -447,7 +431,7 @@ L.OfflineTileLayer = L.TileLayer.extend({
 let currentTileLayerObj = null;
 const tileUrls = {
     standard: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    dark: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', // OSM estándar con filtro CSS inteligente para modo oscuro 100% libre de API Key
+    dark: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
 };
 
@@ -455,7 +439,7 @@ function setMapTileStyle(styleName) {
     state.mapTileStyle = styleName;
     ['standard', 'dark', 'satellite'].forEach(s => {
         const btn = document.getElementById(`style-${s}`);
-        if (btn) btn.className = s === styleName ? "px-3 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 font-bold transition" : "px-3 py-1.5 rounded-xl text-neutral-300 hover:text-white font-bold transition";
+        if (btn) btn.className = s === styleName ? "px-2.5 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 font-bold transition" : "px-2.5 py-1.5 rounded-xl text-neutral-300 hover:text-white font-bold transition";
     });
     
     const mapContainer = document.getElementById('map');
@@ -582,12 +566,12 @@ function toggleTrackingLive() {
     const btn = document.getElementById('tracking-toggle-btn');
     if (!btn) return;
     if (state.isLiveTracking) {
-        btn.className = "absolute bottom-20 right-4 z-20 px-4 py-3 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 rounded-2xl shadow-2xl font-black text-xs flex items-center gap-2 active:scale-95 transition";
-        btn.innerHTML = '<i data-lucide="radio" class="w-4 h-4 animate-pulse"></i> <span>GPS Vivo: ON</span>';
+        btn.className = "w-11 h-11 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 rounded-2xl shadow-2xl flex items-center justify-center active:scale-95 transition";
+        btn.title = "GPS Vivo: ON";
         centrarGPS();
     } else {
-        btn.className = "absolute bottom-20 right-4 z-20 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-2xl shadow-2xl font-bold text-xs flex items-center gap-2 active:scale-95 transition";
-        btn.innerHTML = '<i data-lucide="radio-off" class="w-4 h-4"></i> <span>GPS Vivo: OFF</span>';
+        btn.className = "w-11 h-11 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded-2xl shadow-2xl flex items-center justify-center transition";
+        btn.title = "GPS Vivo: OFF";
     }
     try { lucide.createIcons(); } catch(e){}
 }
@@ -596,8 +580,7 @@ function centrarGPS() {
     state.isLiveTracking = true;
     const btn = document.getElementById('tracking-toggle-btn');
     if (btn) {
-        btn.className = "absolute bottom-20 right-4 z-20 px-4 py-3 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 rounded-2xl shadow-2xl font-black text-xs flex items-center gap-2 active:scale-95 transition";
-        btn.innerHTML = '<i data-lucide="radio" class="w-4 h-4 animate-pulse"></i> <span>GPS Vivo: ON</span>';
+        btn.className = "w-11 h-11 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 rounded-2xl shadow-2xl flex items-center justify-center active:scale-95 transition";
         try { lucide.createIcons(); } catch(e){}
     }
     if (navigator.geolocation && state.map) {
