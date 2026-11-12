@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RouteLogix Pro | Enterprise v30</title>
+    <title>RouteLogix Pro | Enterprise v31 Híbrido & POS</title>
     
     <meta name="theme-color" content="#030712">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="./manifest.json">
 
-    <!-- Estilos locales críticos -->
+    <!-- Estilos locales y librerías externas -->
     <link rel="stylesheet" href="./style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- Scripts externos -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -26,25 +25,31 @@
             <div class="text-center space-y-2">
                 <div class="w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 rounded-2xl flex items-center justify-center mx-auto mb-2 font-black text-2xl shadow-lg">RL</div>
                 <h1 class="text-2xl font-black text-white tracking-wider">ROUTELOGIX PRO</h1>
-                <p class="text-xs text-neutral-400 font-medium">Enterprise v30 • Cámara Directa & Compartir Rutas</p>
+                <p class="text-xs text-neutral-400 font-medium">Enterprise v31 • Auto-Venta POS & Flota Híbrida</p>
             </div>
 
             <div id="form-login" class="space-y-3.5 text-xs">
                 <div>
-                    <label class="block text-neutral-400 font-medium mb-1.5">Nombre del Conductor</label>
-                    <input type="text" id="login-name" placeholder="Ej. Carlos Pérez" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
+                    <label class="block text-neutral-400 font-medium mb-1.5">Nombre / Operador o Negocio</label>
+                    <input type="text" id="login-name" placeholder="Ej. Carlos Pérez (Autoventa)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
                 </div>
                 <div>
-                    <label class="block text-neutral-400 font-medium mb-1.5">Correo Electrónico (Opcional sin señal)</label>
-                    <input type="email" id="login-email" placeholder="cliente@empresa.com" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
+                    <label class="block text-neutral-400 font-medium mb-1.5">Modo de Operación</label>
+                    <select id="login-profile-mode" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-bold focus:outline-none">
+                        <option value="independent" selected>🚀 Autovendedor Independiente (POS + Inventario Local)</option>
+                        <option value="fleet">🏢 Conductor de Flota / Empresa (Sincronización Cloud)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-neutral-400 font-medium mb-1.5">Correo Electrónico (Opcional offline)</label>
+                    <input type="email" id="login-email" placeholder="operador@empresa.com" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
                 </div>
                 <div id="login-error-msg" class="text-rose-400 font-bold text-center hidden"></div>
-                <button type="button" id="btn-login-submit" onclick="handleLoginWithSheetsValidation()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black py-3.5 rounded-xl shadow-lg transition-all active:scale-95">Iniciar Operación</button>
-                <button type="button" onclick="forceOfflineBypassLogin()" class="w-full bg-neutral-800 hover:bg-neutral-700 text-cyan-400 font-bold py-2.5 rounded-xl border border-neutral-700 transition">⚡ Entrar Directo (Modo Sin Señal)</button>
+                <button type="button" id="btn-login-submit" onclick="handleLoginSubmit()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black py-3.5 rounded-xl shadow-lg transition-all active:scale-95">Iniciar Operación</button>
             </div>
             
             <div class="pt-2 border-t border-neutral-800 text-center">
-                <button onclick="openSheetsConfigModal()" class="text-[11px] text-neutral-400 hover:text-cyan-400 underline font-bold">⚙️ Configurar Enlace Google Sheets</button>
+                <button onclick="openSheetsConfigModal()" class="text-[11px] text-neutral-400 hover:text-cyan-400 underline font-bold">⚙️ Configurar Enlace Google Sheets (Flota)</button>
             </div>
         </div>
     </div>
@@ -56,31 +61,26 @@
                 <span id="driver-initials">CP</span>
             </div>
             <div>
-                <h1 id="driver-name-display" class="font-bold text-xs text-white tracking-wide">Conductor Asignado</h1>
+                <h1 id="driver-name-display" class="font-bold text-xs text-white tracking-wide">Operador</h1>
                 <div class="flex items-center gap-2 mt-0.5">
                     <span id="network-status-badge" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                         <span id="network-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                         <span id="network-text">Online</span>
                     </span>
-                    <span id="outbox-sync-badge" class="text-[9px] text-amber-400 hidden font-bold">📤 Pendiente Sync</span>
+                    <span id="mode-badge" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">POS</span>
                 </div>
             </div>
         </div>
         <div class="flex items-center space-x-1.5">
-            <!-- Botón Tutorial Interactivo -->
             <button onclick="startInteractiveTutorial(true)" class="p-2 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-400 rounded-xl text-xs flex items-center border border-cyan-500/30 transition" title="Ver Tutorial">
                 <span class="font-black px-1">?</span>
             </button>
-
-            <!-- Botón Compartir Ruta (Nuevo) -->
-            <button onclick="compartirRutaActiva()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 rounded-xl text-xs flex items-center border border-neutral-700 transition" title="Compartir Ruta Actual">
+            <button onclick="compartirRutaActiva()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 rounded-xl text-xs flex items-center border border-neutral-700 transition" title="Compartir Ruta">
                 <i data-lucide="share-2" class="w-4 h-4"></i>
             </button>
-
-            <button onclick="logoutSession()" class="p-2 bg-neutral-800 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center border border-neutral-700 transition" title="Cambiar Conductor">
+            <button onclick="logoutSession()" class="p-2 bg-neutral-800 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center border border-neutral-700 transition" title="Cerrar Sesión">
                 <i data-lucide="user-minus" class="w-4 h-4"></i>
             </button>
-
             <button onclick="document.getElementById('import-file-input').click()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-cyan-400 rounded-xl text-xs flex items-center border border-neutral-700 transition" title="Importar JSON">
                 <i data-lucide="folder-open" class="w-4 h-4"></i>
             </button>
@@ -93,7 +93,6 @@
 
         <!-- MAP VIEW -->
         <section id="view-map" class="flex-1 flex flex-col relative h-full">
-            <!-- Barra de Búsqueda Superior -->
             <div id="tour-search" class="absolute top-3 left-3 right-3 z-30 flex gap-2">
                 <div class="flex-1 bg-neutral-900/95 border border-neutral-700 rounded-2xl flex items-center px-3.5 py-2.5 shadow-2xl">
                     <i data-lucide="search" class="w-4 h-4 text-cyan-400 mr-2 shrink-0"></i>
@@ -102,14 +101,12 @@
                 <button onclick="searchMapAddress()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 px-4 rounded-2xl shadow-lg flex items-center justify-center text-xs font-black transition">Ir</button>
             </div>
 
-            <!-- Estilos de Mapa y Velocímetro -->
             <div id="tour-map-styles" class="absolute top-16 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
                 <div class="flex gap-1 bg-neutral-900/95 p-1 rounded-2xl border border-neutral-700 text-[10px] shadow-2xl font-bold pointer-events-auto">
                     <button onclick="setMapTileStyle('standard')" id="style-standard" class="px-2.5 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 transition">Clásico</button>
                     <button onclick="setMapTileStyle('dark')" id="style-dark" class="px-2.5 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Oscuro</button>
                     <button onclick="setMapTileStyle('offline')" id="style-offline" class="px-2.5 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Táctico Offline</button>
                 </div>
-
                 <div class="flex flex-col items-end gap-1.5 pointer-events-auto">
                     <div id="gps-speed-widget" class="bg-neutral-900/95 border border-cyan-500/30 px-3 py-1.5 rounded-xl shadow-xl flex items-center space-x-2 text-xs">
                         <div id="transport-icon-indicator" class="text-cyan-400 text-sm">🚗</div>
@@ -118,7 +115,6 @@
                 </div>
             </div>
 
-            <!-- Contenedor del Mapa -->
             <div id="map" class="w-full flex-1 absolute inset-0 z-0 bg-slate-900"></div>
             <div id="map-fallback-banner" class="hidden absolute top-28 left-3 right-3 z-20 bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold px-3 py-1.5 rounded-xl text-center backdrop-blur-md">
                 📡 Modo Mapa Táctico Offline Activo
@@ -129,7 +125,6 @@
                 <div class="absolute w-2.5 h-2.5 bg-cyan-400 rounded-full"></div>
             </div>
 
-            <!-- Botones Flotantes Laterales -->
             <div id="tour-gps-controls" class="absolute bottom-20 right-4 z-20 flex flex-col gap-2">
                 <button onclick="openOfflineDownloadModal()" class="w-11 h-11 bg-neutral-900/95 hover:bg-neutral-800 border border-emerald-500/40 rounded-2xl flex items-center justify-center text-emerald-400 shadow-2xl transition" title="Descargar Mapa Offline">
                     <i data-lucide="download-cloud" class="w-5 h-5"></i>
@@ -142,7 +137,6 @@
                 </button>
             </div>
 
-            <!-- Botonera Inferior del Mapa -->
             <div id="tour-map-actions" class="absolute bottom-4 left-0 right-0 z-20 px-4 flex gap-2.5">
                 <div class="relative flex-1">
                     <button onclick="toggleStopMenu()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-neutral-950 font-black py-3.5 px-4 rounded-2xl shadow-2xl flex items-center justify-center gap-2 border border-cyan-400/40 text-xs active:scale-95 transition">
@@ -168,9 +162,9 @@
         <!-- ROUTES VIEW -->
         <section id="view-routes" class="p-4 space-y-4 hidden flex-1 bg-neutral-950">
             <div class="flex justify-between items-center">
-                <h2 class="text-xs font-black text-cyan-400 uppercase tracking-widest">Gestión de Rutas TaT</h2>
+                <h2 class="text-xs font-black text-cyan-400 uppercase tracking-widest">Gestión de Rutas & POS</h2>
                 <div class="flex gap-2">
-                    <button onclick="compartirRutaActiva()" class="bg-emerald-600 hover:bg-emerald-500 text-neutral-950 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5" title="Compartir Ruta">
+                    <button onclick="compartirRutaActiva()" class="bg-emerald-600 hover:bg-emerald-500 text-neutral-950 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
                         <i data-lucide="share-2" class="w-3.5 h-3.5"></i> Compartir
                     </button>
                     <button onclick="openCreateRouteModal()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 text-xs font-black px-3.5 py-2 rounded-xl flex items-center space-x-1 shadow-lg transition">
@@ -184,7 +178,7 @@
                 <div class="flex justify-between items-start">
                     <div>
                         <span class="bg-cyan-500/20 text-cyan-400 text-[10px] font-black px-2.5 py-1 rounded-full uppercase border border-cyan-500/30">Ruta Activa</span>
-                        <h3 id="route-active-title" class="font-black text-base text-white mt-1.5">Ruta Principal TaT</h3>
+                        <h3 id="route-active-title" class="font-black text-base text-white mt-1.5">Ruta Autoventa POS</h3>
                     </div>
                     <span class="px-3 py-1 rounded-xl bg-neutral-950 text-emerald-400 text-xs font-bold border border-neutral-800">En Curso</span>
                 </div>
@@ -194,8 +188,8 @@
                     <select id="transport-mode-select" onchange="changeTransportMode(this.value)" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-2.5 text-white font-bold focus:outline-none">
                         <option value="walk">🚶 A pie (~5 km/h)</option>
                         <option value="bike">🚲 Bicicleta (~15 km/h)</option>
-                        <option value="moto">🏍️ Moto (~35 km/h)</option>
-                        <option value="car" selected>🚗 Carro pequeño (~30 km/h)</option>
+                        <option value="moto" selected>🏍️ Moto (~35 km/h)</option>
+                        <option value="car">🚗 Carro pequeño (~30 km/h)</option>
                         <option value="truck">🚚 Camión (~20 km/h)</option>
                     </select>
                 </div>
@@ -214,7 +208,7 @@
                         <strong id="metric-clients" class="text-cyan-400 text-xs font-black">0</strong>
                     </div>
                     <div class="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800">
-                        <span class="text-[9px] text-neutral-400 block uppercase font-bold">Valor</span>
+                        <span class="text-[9px] text-neutral-400 block uppercase font-bold">Valor Venta</span>
                         <strong id="metric-money" class="text-emerald-400 text-xs font-black">$0</strong>
                     </div>
                 </div>
@@ -239,16 +233,37 @@
             <div id="routes-list-container" class="space-y-3"></div>
         </section>
 
-        <!-- AGENDA VIEW -->
+        <!-- AGENDA & POS INVENTORY VIEW -->
         <section id="view-agenda" class="p-4 space-y-4 hidden flex-1 bg-neutral-950">
-            <div class="flex justify-between items-center">
-                <h2 class="text-xs font-black text-cyan-400 uppercase tracking-widest">Agenda & Ficha de Clientes</h2>
-                <button onclick="openClientModal()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 text-xs font-black px-3.5 py-2.5 rounded-xl flex items-center space-x-1.5 shadow-lg transition">
-                    <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
-                    <span>Nuevo Cliente</span>
-                </button>
+            <!-- Pestañas internas Agenda / Inventario POS -->
+            <div class="flex bg-neutral-900 p-1.5 rounded-2xl border border-neutral-800 text-xs font-bold">
+                <button onclick="switchAgendaTab('clients')" id="agenda-tab-clients" class="flex-1 py-2 rounded-xl bg-cyan-500 text-neutral-950 transition">Clientes (Agenda)</button>
+                <button onclick="switchAgendaTab('inventory')" id="agenda-tab-inventory" class="flex-1 py-2 rounded-xl text-neutral-300 hover:text-white transition">Inventario POS 📦</button>
             </div>
-            <div id="lista-agenda" class="space-y-3"></div>
+
+            <!-- CONTENEDOR CLIENTES -->
+            <div id="subview-clients" class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-black text-cyan-400 uppercase tracking-widest">Agenda de Clientes</h2>
+                    <button onclick="openClientModal()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 text-xs font-black px-3.5 py-2.5 rounded-xl flex items-center space-x-1.5 shadow-lg transition">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                        <span>Nuevo Cliente</span>
+                    </button>
+                </div>
+                <div id="lista-agenda" class="space-y-3"></div>
+            </div>
+
+            <!-- CONTENEDOR INVENTARIO POS -->
+            <div id="subview-inventory" class="space-y-3 hidden">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-black text-emerald-400 uppercase tracking-widest">Catálogo & Stock en Ruta</h2>
+                    <button onclick="openProductModal()" class="bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-black px-3.5 py-2.5 rounded-xl flex items-center space-x-1.5 shadow-lg transition">
+                        <i data-lucide="package-plus" class="w-3.5 h-3.5"></i>
+                        <span>Añadir Producto</span>
+                    </button>
+                </div>
+                <div id="lista-inventario-pos" class="space-y-3"></div>
+            </div>
         </section>
 
         <!-- FINANCES / CASH VIEW -->
@@ -261,7 +276,7 @@
                     </div>
                     <button onclick="resetCashCounter()" class="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs px-3.5 py-2 rounded-xl border border-neutral-700 font-bold transition">Limpiar</button>
                 </div>
-                <div id="denominations-container" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
+                <div id="denominations-container" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
             </div>
 
             <div class="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 shadow-xl space-y-3.5">
@@ -278,12 +293,12 @@
 
             <div class="bg-neutral-900 border border-cyan-500/40 rounded-3xl p-5 shadow-2xl space-y-4">
                 <div class="flex justify-between items-center border-b border-neutral-800 pb-3">
-                    <span class="text-xs font-black text-cyan-400 uppercase tracking-widest">Cierre & Cuadre TaT</span>
+                    <span class="text-xs font-black text-cyan-400 uppercase tracking-widest">Cierre & Cuadre Autoventa POS</span>
                     <span id="final-balance-badge" class="text-xs font-black text-emerald-400 bg-emerald-500/20 px-3 py-1 rounded-full">$0 Neto</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2.5 text-xs">
                     <div class="bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
-                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">1. Entregado Efectivo</span>
+                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">1. Venta Efectivo POS</span>
                         <strong id="summary-facturado" class="text-white text-sm font-black">$0</strong>
                     </div>
                     <div class="bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
@@ -304,8 +319,8 @@
                     <span id="summary-diff" class="text-sm font-black text-amber-400">$0</span>
                 </div>
                 <div class="bg-neutral-950 p-3.5 rounded-2xl border border-emerald-500/30 flex justify-between items-center">
-                    <span class="text-xs text-neutral-200 font-bold">Total Recaudado Neto:</span>
-                    <span id="summary-neto-total" class="text-base font-black text-emerald-400">$0</span>
+                    <span class="text-xs text-neutral-200 font-bold">Margen / Ganancia Neta Estimada:</span>
+                    <span id="summary-profit" class="text-base font-black text-emerald-400">$0</span>
                 </div>
             </div>
         </section>
@@ -380,6 +395,37 @@
         </div>
     </div>
 
+    <!-- MODAL PRODUCTO POS -->
+    <div id="modal-product" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-emerald-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-black text-sm text-emerald-400">Añadir Producto al Inventario POS</h3>
+            <div class="space-y-2.5">
+                <div>
+                    <label class="block text-neutral-400 mb-1">Nombre del Producto *</label>
+                    <input type="text" id="prod-name" placeholder="Ej. Queso Doble Crema 500g" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-emerald-500">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-neutral-400 mb-1">Costo Unit. ($)</label>
+                        <input type="number" id="prod-cost" placeholder="9000" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-neutral-400 mb-1">Precio Venta ($)</label>
+                        <input type="number" id="prod-price" placeholder="12000" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-neutral-400 mb-1">Stock Inicial en Vehículo *</label>
+                    <input type="number" id="prod-stock" placeholder="30" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
+                </div>
+                <div class="flex gap-2.5 pt-2">
+                    <button onclick="handleProductSubmit()" class="flex-1 bg-emerald-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg transition">Guardar Producto</button>
+                    <button onclick="document.getElementById('modal-product').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold transition">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-client-detail" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <div class="flex justify-between items-start">
@@ -407,25 +453,37 @@
                     <button onclick="registrarAbonoCliente()" class="bg-emerald-500 text-neutral-950 font-black px-3.5 py-2.5 rounded-xl transition">Abonar</button>
                 </div>
             </div>
-
             <div id="detail-no-credit-msg" class="text-center text-neutral-500 text-[11px] py-2">
                 ✅ Cliente sin saldo pendiente de crédito.
             </div>
         </div>
     </div>
 
-    <!-- MODAL GESTIÓN DE ENTREGA CON CÁMARA DIRECTA -->
+    <!-- MODAL GESTIÓN DE ENTREGA / POS AUTOVENTA CON CÁMARA DIRECTA -->
     <div id="modal-evidence" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-md rounded-3xl p-6 space-y-3.5 shadow-2xl text-xs max-h-[95vh] overflow-y-auto">
-            <h3 class="font-black text-sm text-cyan-400">Gestión de Entrega y Cobro</h3>
+            <h3 class="font-black text-sm text-cyan-400">Gestión de Parada & POS Autoventa</h3>
             <input type="hidden" id="evidence-stop-id">
             
             <div class="space-y-1.5">
-                <label class="block text-neutral-400 font-medium">Estado del Pedido</label>
-                <select id="evidence-status" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-bold focus:outline-none">
-                    <option value="delivered">✅ Entregado</option>
-                    <option value="rejected">❌ Rechazado</option>
+                <label class="block text-neutral-400 font-medium">Estado de la Visita</label>
+                <select id="evidence-status" onchange="togglePOSCartSection(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-bold focus:outline-none">
+                    <option value="delivered">✅ Venta Exitosa (POS / Entrega)</option>
+                    <option value="rejected">❌ Rechazado / Sin Venta</option>
                 </select>
+            </div>
+
+            <!-- CARRITO POS DE PRODUCTOS -->
+            <div id="pos-cart-box" class="space-y-2.5 bg-neutral-950 p-3.5 rounded-2xl border border-emerald-500/30">
+                <div class="flex justify-between items-center">
+                    <span class="text-emerald-400 font-black uppercase text-[11px]">🛒 Carrito POS (Descuenta Inventario)</span>
+                    <button type="button" onclick="addPosCartItemRow()" class="text-[10px] text-cyan-400 underline font-bold">+ Producto</button>
+                </div>
+                <div id="pos-items-rows" class="space-y-2"></div>
+                <div class="flex justify-between items-center pt-2 border-t border-neutral-800 text-xs">
+                    <span class="font-bold text-neutral-300">Total Venta POS:</span>
+                    <strong id="pos-cart-total-display" class="text-emerald-400 text-sm font-black">$0</strong>
+                </div>
             </div>
 
             <div class="space-y-1.5">
@@ -439,13 +497,9 @@
             </div>
 
             <div id="payment-credit-box" class="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-3.5 space-y-2.5 hidden">
-                <span class="text-amber-400 font-black text-[11px] uppercase block">📝 Registro de Crédito en Entrega</span>
+                <span class="text-amber-400 font-black text-[11px] uppercase block">📝 Registro de Crédito en Venta</span>
                 <div>
-                    <label class="block text-neutral-400 mb-1">Valor a Crédito ($)</label>
-                    <input type="number" id="evidence-credit-amount" class="w-full bg-neutral-950 border border-amber-500/40 rounded-xl p-2.5 text-white font-bold focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-neutral-400 mb-1">Plazo / Compromiso</label>
+                    <label class="block text-neutral-400 mb-1">Plazo / Compromiso de Pago</label>
                     <input type="text" id="evidence-credit-note" placeholder="Ej. Paga el próximo martes" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:outline-none">
                 </div>
             </div>
@@ -480,9 +534,7 @@
 
             <!-- FOTO DIRECTA CON CÁMARA O GALERÍA -->
             <div class="space-y-2">
-                <label class="block text-neutral-400 font-medium">Evidencia Fotográfica (Fachada / Factura / Mercancía)</label>
-                
-                <!-- Input nativo con capture="environment" para abrir la cámara trasera directamente -->
+                <label class="block text-neutral-400 font-medium">Evidencia Fotográfica (Fachada / Factura)</label>
                 <input type="file" id="evidence-camera-input" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoCaptured(event)">
                 <input type="file" id="evidence-gallery-input" accept="image/*" class="hidden" onchange="handlePhotoCaptured(event)">
 
@@ -495,7 +547,6 @@
                     </button>
                 </div>
 
-                <!-- Preview de la foto capturada -->
                 <div id="evidence-photo-preview-box" class="hidden relative bg-neutral-950 rounded-2xl p-2 border border-cyan-500/30 text-center">
                     <img id="evidence-photo-preview-img" src="" alt="Foto Evidencia" class="max-h-36 mx-auto rounded-xl object-contain">
                     <button type="button" onclick="removeCapturedPhoto()" class="absolute top-3 right-3 bg-rose-600 text-white p-1.5 rounded-full shadow hover:bg-rose-500">✕</button>
@@ -514,7 +565,7 @@
             </div>
 
             <div class="flex gap-2.5 pt-2">
-                <button onclick="saveEvidence()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg transition">Confirmar Entrega</button>
+                <button onclick="saveEvidence()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg transition">Confirmar Venta / Entrega</button>
                 <button onclick="document.getElementById('modal-evidence').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold transition">Cancelar</button>
             </div>
         </div>
@@ -523,7 +574,7 @@
     <!-- Resto de modales operativos -->
     <div id="modal-sheets-config" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
-            <h3 class="font-black text-sm text-cyan-400">Control de Licencias (Google Sheets)</h3>
+            <h3 class="font-black text-sm text-cyan-400">Control de Flota (Google Sheets)</h3>
             <input type="text" id="cfg-sheets-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
             <div class="flex gap-2.5 pt-2">
                 <button onclick="saveSheetsConfig()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Guardar</button>
@@ -556,7 +607,7 @@
 
     <div id="modal-driver" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
-            <h3 class="font-black text-sm text-cyan-400">Editar Perfil del Conductor</h3>
+            <h3 class="font-black text-sm text-cyan-400">Editar Perfil del Operador</h3>
             <input type="text" id="edit-driver-name" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
             <div class="flex gap-2.5">
                 <button onclick="saveDriverProfile()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Guardar</button>
@@ -569,7 +620,6 @@
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <h3 class="font-black text-sm text-cyan-400">Añadir Cliente de Agenda a Ruta</h3>
             <select id="select-agenda-client" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-bold"></select>
-            <input type="number" id="agenda-stop-value" placeholder="Valor factura ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
             <div class="flex gap-2.5">
                 <button onclick="confirmAddStopFromAgenda()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Añadir</button>
                 <button onclick="document.getElementById('modal-route-add-stop').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cancelar</button>
@@ -594,7 +644,7 @@
     <div id="modal-route" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <h3 class="font-black text-sm text-cyan-400">Crear Nueva Ruta</h3>
-            <input type="text" id="new-route-name" placeholder="Ej. Ruta Sur" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <input type="text" id="new-route-name" placeholder="Ej. Ruta Autoventa Norte" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
             <div class="flex gap-2.5">
                 <button onclick="createNewRoute()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Crear</button>
                 <button onclick="document.getElementById('modal-route').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cancelar</button>
@@ -608,7 +658,6 @@
             <div class="space-y-2.5">
                 <input type="text" id="parada-nombre" placeholder="Nombre del Negocio" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
                 <input type="text" id="parada-direccion" placeholder="Dirección" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
-                <input type="number" id="parada-valor" placeholder="Valor factura ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
                 <div class="flex gap-2.5 pt-2">
                     <button onclick="guardarNuevaParada()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black">Guardar</button>
                     <button onclick="document.getElementById('modal-parada').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold">Cancelar</button>

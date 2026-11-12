@@ -1,5 +1,5 @@
-const CACHE_NAME = 'routelogix-enterprise-v30-offline';
-const CORE_ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE_NAME = 'routelogix-enterprise-v31-offline';
+const CORE_ASSETS = ['./', './index.html', './style.css', './app.js', './manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)));

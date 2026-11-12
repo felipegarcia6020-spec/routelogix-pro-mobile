@@ -1,29 +1,36 @@
-// RouteLogix Pro Enterprise v30 - Cámara Directa + Compartir Rutas + Offline-First
+// RouteLogix Pro Enterprise v31 - Híbrido: Autovendedor POS + Flota Cloud
 
-const APP_STORAGE_KEY = 'routelogix_v30_state';
-const TUTORIAL_DONE_KEY = 'routelogix_v30_tutorial_done';
+const APP_STORAGE_KEY = 'routelogix_v31_state';
+const TUTORIAL_DONE_KEY = 'routelogix_v31_tutorial_done';
 
 let appState = {
-    driver: { name: '', email: '', loggedIn: false },
+    driver: { name: '', email: '', role: 'independent', loggedIn: false },
     sheetsUrl: '',
-    transportMode: 'car',
+    transportMode: 'moto',
     mapStyle: 'standard',
     activeRouteId: 'route-1',
     routes: [
         {
             id: 'route-1',
-            name: 'Ruta Principal TaT',
+            name: 'Ruta Autoventa POS',
             stops: []
         }
     ],
     clients: [],
+    inventory: [
+        { id: 'p1', name: 'Queso Doble Crema 500g', cost: 9000, price: 12000, stock: 30 },
+        { id: 'p2', name: 'Leche Entera 1L', cost: 3200, price: 4500, stock: 50 },
+        { id: 'p3', name: 'Yogur Fresa 1L', cost: 5000, price: 7000, stock: 25 },
+        { id: 'p4', name: 'Pan Tajado Artesanal', cost: 4000, price: 6000, stock: 20 }
+    ],
     expenses: [],
     cashCounts: {},
     paymentConfig: {
         bankName: 'Nequi / DaviPlata',
         bankAccount: '3100000000',
         qrDataUrl: ''
-    }
+    },
+    outboxQueue: []
 };
 
 let map = null;
@@ -36,8 +43,9 @@ let isTrackingLive = true;
 let lastKnownCoords = [4.3365, -74.3638];
 let deferredPrompt = null;
 let currentCapturedPhotoData = '';
+let activePosCartItems = []; // [{productId, qty, price}]
 
-// --- 1. ARRANQUE GARANTIZADO ---
+// --- ARRANQUE ---
 document.addEventListener('DOMContentLoaded', () => {
     try {
         loadAppState();
@@ -56,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (appState.driver.email) document.getElementById('login-email').value = appState.driver.email;
         }
     } catch (err) {
-        console.error('Error en arranque:', err);
+        console.error('Error arranque:', err);
         document.getElementById('auth-screen').classList.add('hidden');
     }
 });
@@ -81,19 +89,6 @@ function registerServiceWorkerSafe() {
     }
 }
 
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    const btn = document.getElementById('pwa-install-btn');
-    if (btn) btn.classList.remove('hidden');
-});
-
-function triggerPWAInstall() {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
-}
-
 function setupNetworkListeners() {
     const updateBadge = () => {
         const isOnline = navigator.onLine;
@@ -106,6 +101,7 @@ function setupNetworkListeners() {
             badge.className = 'px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1';
             dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
             text.textContent = 'Online';
+            processOutboxQueue();
         } else {
             badge.className = 'px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1';
             dot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
@@ -129,43 +125,12 @@ function saveAppState() {
     localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(appState));
 }
 
-async function handleLoginWithSheetsValidation() {
-    const name = document.getElementById('login-name').value.trim() || 'Conductor Operativo';
+function handleLoginSubmit() {
+    const name = document.getElementById('login-name').value.trim() || 'Operador Autoventa';
     const email = document.getElementById('login-email').value.trim();
-    const errBox = document.getElementById('login-error-msg');
-    const btn = document.getElementById('btn-login-submit');
+    const role = document.getElementById('login-profile-mode').value;
 
-    errBox.classList.add('hidden');
-    btn.textContent = 'Iniciando...';
-    btn.disabled = true;
-
-    if (appState.sheetsUrl && email && navigator.onLine) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3500);
-            const res = await fetch(`${appState.sheetsUrl}?email=${encodeURIComponent(email)}`, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            const data = await res.json();
-            if (data && data.status === 'blocked') {
-                errBox.textContent = 'Acceso restringido.';
-                errBox.classList.remove('hidden');
-                btn.textContent = 'Iniciar Operación';
-                btn.disabled = false;
-                return;
-            }
-        } catch (e) {}
-    }
-    completeLogin(name, email);
-}
-
-function forceOfflineBypassLogin() {
-    const name = document.getElementById('login-name').value.trim() || 'Conductor Offline';
-    const email = document.getElementById('login-email').value.trim();
-    completeLogin(name, email);
-}
-
-function completeLogin(name, email) {
-    appState.driver = { name, email, loggedIn: true };
+    appState.driver = { name, email, role, loggedIn: true };
     saveAppState();
     document.getElementById('auth-screen').classList.add('hidden');
     updateDriverHeaderUI();
@@ -179,11 +144,12 @@ function logoutSession() {
 }
 
 function updateDriverHeaderUI() {
-    const name = appState.driver.name || 'Conductor';
+    const name = appState.driver.name || 'Operador';
     document.getElementById('driver-name-display').textContent = name;
     const parts = name.split(' ').filter(Boolean);
     const initials = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
     document.getElementById('driver-initials').textContent = initials || 'RL';
+    document.getElementById('mode-badge').textContent = appState.driver.role === 'independent' ? 'POS Autoventa' : 'Flota Empresa';
 }
 
 // --- MAPA OFFLINE ---
@@ -275,7 +241,6 @@ function startGPSTracking() {
 }
 
 function centrarGPS() { if (map) map.setView(lastKnownCoords, 16); }
-
 function toggleTrackingLive() {
     isTrackingLive = !isTrackingLive;
     const btn = document.getElementById('tracking-toggle-btn');
@@ -296,37 +261,36 @@ async function searchMapAddress() {
     } catch (e) {}
 }
 
-// --- 2. COMPARTIR RUTAS ENTRE DISPOSITIVOS ---
+// --- COMPARTIR RUTA ---
 async function compartirRutaActiva() {
     const route = getActiveRoute();
     const payload = JSON.stringify({
-        appName: "RouteLogix Pro Route",
-        version: "30",
+        appName: "RouteLogix Pro Autoventa",
+        version: "31",
         routeExport: route,
+        inventory: appState.inventory,
         exportedAt: new Date().toISOString()
     }, null, 2);
 
     const blob = new Blob([payload], { type: 'application/json' });
     const file = new File([blob], `${route.name.toLowerCase().replace(/\s+/g, '-')}-routelogix.json`, { type: 'application/json' });
 
-    // Intentar Web Share API nativa (Bluetooth, WhatsApp, AirDrop, etc.)
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
             await navigator.share({
                 title: `Ruta: ${route.name}`,
-                text: `Ruta TaT de RouteLogix Pro (${route.stops.length} paradas). Importa este archivo en la app.`,
+                text: `Ruta POS Autoventa (${route.stops.length} paradas). Importa este archivo en la app.`,
                 files: [file]
             });
             return;
         } catch (e) {
-            if (e.name !== 'AbortError') console.warn('Share API error:', e);
+            if (e.name !== 'AbortError') console.warn(e);
         }
     }
 
-    // Fallback con portapapeles o descarga de archivo directo
     try {
         await navigator.clipboard.writeText(payload);
-        alert('📋 ¡Datos de la ruta copiados al portapapeles! Puedes pegarlos en un mensaje de WhatsApp o exportar el archivo JSON.');
+        alert('📋 ¡Datos de la ruta copiados al portapapeles!');
     } catch (e) {}
 
     const a = document.createElement('a');
@@ -335,7 +299,33 @@ async function compartirRutaActiva() {
     a.click();
 }
 
-// --- 3. CÁMARA DIRECTA EN EVIDENCIA ---
+// --- MÓDULO POS AUTOVENTA ---
+function openProductModal() {
+    ['prod-name', 'prod-cost', 'prod-price', 'prod-stock'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('modal-product').classList.remove('hidden');
+}
+
+function handleProductSubmit() {
+    const name = document.getElementById('prod-name').value.trim();
+    const cost = parseFloat(document.getElementById('prod-cost').value) || 0;
+    const price = parseFloat(document.getElementById('prod-price').value) || 0;
+    const stock = parseInt(document.getElementById('prod-stock').value) || 0;
+    if (!name || price <= 0) return alert('Nombre y precio de venta requeridos.');
+
+    appState.inventory.push({ id: 'prod-' + Date.now(), name, cost, price, stock });
+    saveAppState();
+    document.getElementById('modal-product').classList.add('hidden');
+    renderAllViews();
+}
+
+function switchAgendaTab(tab) {
+    const isClients = tab === 'clients';
+    document.getElementById('subview-clients').classList.toggle('hidden', !isClients);
+    document.getElementById('subview-inventory').classList.toggle('hidden', isClients);
+    document.getElementById('agenda-tab-clients').className = isClients ? 'flex-1 py-2 rounded-xl bg-cyan-500 text-neutral-950 transition' : 'flex-1 py-2 rounded-xl text-neutral-300 hover:text-white transition';
+    document.getElementById('agenda-tab-inventory').className = !isClients ? 'flex-1 py-2 rounded-xl bg-emerald-500 text-neutral-950 transition' : 'flex-1 py-2 rounded-xl text-neutral-300 hover:text-white transition';
+}
+
 function openEvidenceModal(stopId) {
     const route = getActiveRoute();
     const stop = route.stops.find(s => s.id === stopId);
@@ -344,16 +334,71 @@ function openEvidenceModal(stopId) {
     document.getElementById('evidence-stop-id').value = stop.id;
     document.getElementById('evidence-status').value = stop.status === 'rejected' ? 'rejected' : 'delivered';
     document.getElementById('evidence-payment-method').value = stop.paymentMethod || 'cash';
-    document.getElementById('evidence-credit-amount').value = stop.value || 0;
-    document.getElementById('evidence-credit-note').value = '';
+    document.getElementById('evidence-credit-note').value = stop.creditNote || '';
     document.getElementById('evidence-notes').value = stop.notes || '';
 
     currentCapturedPhotoData = stop.photoData || '';
     updatePhotoPreviewUI();
 
+    activePosCartItems = stop.posItems ? [...stop.posItems] : [];
+    renderPosCartRows();
+    togglePOSCartSection(document.getElementById('evidence-status').value);
     togglePaymentDetails(stop.paymentMethod || 'cash');
     clearSignatureCanvas();
     document.getElementById('modal-evidence').classList.remove('hidden');
+}
+
+function togglePOSCartSection(status) {
+    const box = document.getElementById('pos-cart-box');
+    if (status === 'rejected') box.classList.add('hidden');
+    else box.classList.remove('hidden');
+}
+
+function addPosCartItemRow() {
+    if (appState.inventory.length === 0) return alert('Primero añade productos en la sección Agenda -> Inventario POS.');
+    activePosCartItems.push({ productId: appState.inventory[0].id, qty: 1, price: appState.inventory[0].price });
+    renderPosCartRows();
+}
+
+function renderPosCartRows() {
+    const container = document.getElementById('pos-items-rows');
+    let total = 0;
+
+    container.innerHTML = activePosCartItems.map((item, idx) => {
+        const prod = appState.inventory.find(p => p.id === item.productId) || appState.inventory[0];
+        const subtotal = item.qty * item.price;
+        total += subtotal;
+
+        return `
+        <div class="flex items-center gap-2 bg-neutral-900 p-2 rounded-xl border border-neutral-800">
+            <select onchange="updatePosItemProduct(${idx}, this.value)" class="flex-1 bg-neutral-950 border border-neutral-700 rounded-lg p-1.5 text-white text-[11px] font-bold">
+                ${appState.inventory.map(p => `<option value="${p.id}" ${p.id === item.productId ? 'selected' : ''}>${p.name} ($${p.price.toLocaleString()})</option>`).join('')}
+            </select>
+            <input type="number" min="1" value="${item.qty}" onchange="updatePosItemQty(${idx}, this.value)" class="w-14 bg-neutral-950 border border-neutral-700 rounded-lg p-1.5 text-center text-white font-bold text-xs">
+            <span class="text-emerald-400 font-bold text-xs w-16 text-right">$${subtotal.toLocaleString()}</span>
+            <button type="button" onclick="removePosItemRow(${idx})" class="text-rose-400 font-bold px-1.5">✕</button>
+        </div>`;
+    }).join('');
+
+    document.getElementById('pos-cart-total-display').textContent = `$${total.toLocaleString()}`;
+}
+
+function updatePosItemProduct(idx, prodId) {
+    const prod = appState.inventory.find(p => p.id === prodId);
+    if (!prod) return;
+    activePosCartItems[idx].productId = prod.id;
+    activePosCartItems[idx].price = prod.price;
+    renderPosCartRows();
+}
+
+function updatePosItemQty(idx, qty) {
+    activePosCartItems[idx].qty = Math.max(1, parseInt(qty) || 1);
+    renderPosCartRows();
+}
+
+function removePosItemRow(idx) {
+    activePosCartItems.splice(idx, 1);
+    renderPosCartRows();
 }
 
 function handlePhotoCaptured(e) {
@@ -386,14 +431,48 @@ function removeCapturedPhoto() {
     document.getElementById('evidence-gallery-input').value = '';
 }
 
+// --- SINKING OUTBOX QUEUE (FLOTA) ---
+function queueOutboxSync(payload) {
+    if (appState.driver.role !== 'fleet') return;
+    appState.outboxQueue.push({ id: Date.now(), data: payload, timestamp: new Date().toISOString() });
+    saveAppState();
+    const badge = document.getElementById('outbox-sync-badge');
+    if (badge) badge.classList.remove('hidden');
+    processOutboxQueue();
+}
+
+async function processOutboxQueue() {
+    if (!navigator.onLine || !appState.sheetsUrl || appState.outboxQueue.length === 0) return;
+    const badge = document.getElementById('outbox-sync-badge');
+    if (badge) badge.textContent = '📤 Sincronizando...';
+
+    const queueCopy = [...appState.outboxQueue];
+    for (const item of queueCopy) {
+        try {
+            await fetch(appState.sheetsUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item.data)
+            });
+            appState.outboxQueue = appState.outboxQueue.filter(q => q.id !== item.id);
+        } catch (e) {}
+    }
+    saveAppState();
+    if (badge) {
+        if (appState.outboxQueue.length === 0) badge.classList.add('hidden');
+        else badge.textContent = '📤 Pendiente Sync';
+    }
+}
+
 // --- TUTORIAL ---
 const TUTORIAL_STEPS = [
-    { targetId: 'tour-header', title: 'Barra Superior y Compartir', desc: 'Aquí ves tu estado y el botón de Compartir Ruta (para enviar la ruta por WhatsApp, Bluetooth o archivo).' },
-    { targetId: 'tour-search', title: 'Buscador de Direcciones', desc: 'Ubica direcciones rápidamente.' },
-    { targetId: 'tour-map-styles', title: 'Modo Táctico Offline', desc: 'Mapas funcionales sin internet.' },
-    { targetId: 'tour-gps-controls', title: 'GPS y Descarga Offline', desc: 'Guarda tus mosaicos antes de salir.' },
-    { targetId: 'tour-map-actions', title: 'Añadir Paradas y IA', desc: 'Agrega puntos y optimiza rutas al instante.' },
-    { targetId: 'tour-navbar', title: 'Navegación de Módulos', desc: 'Mapa, Ruta, Agenda y Caja.' }
+    { targetId: 'tour-header', title: 'Operador & Modo Híbrido', desc: 'Cambia entre Autovendedor POS independiente y Flota Cloud.' },
+    { targetId: 'tour-search', title: 'Buscador y Mapa', desc: 'Ubica direcciones rápidamente.' },
+    { targetId: 'tour-map-styles', title: 'Modo Táctico Offline', desc: 'Funcionalidad sin internet garantizada.' },
+    { targetId: 'tour-gps-controls', title: 'GPS y Descarga Offline', desc: 'Guarda mosaicos de zona antes de salir.' },
+    { targetId: 'tour-map-actions', title: 'Añadir Paradas y POS', desc: 'Agrega puntos y gestiona ventas al instante.' },
+    { targetId: 'tour-navbar', title: 'Módulos Principales', desc: 'Mapa, Ruta, Agenda / Inventario y Caja.' }
 ];
 
 let currentTutorialStep = 0;
@@ -457,14 +536,12 @@ function abrirModalParadaCentro() {
     const center = map ? map.getCenter() : { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
     document.getElementById('parada-direccion').value = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
     document.getElementById('parada-nombre').value = '';
-    document.getElementById('parada-valor').value = '';
     document.getElementById('modal-parada').classList.remove('hidden');
 }
 
 function guardarNuevaParada() {
     const name = document.getElementById('parada-nombre').value.trim();
     const address = document.getElementById('parada-direccion').value.trim();
-    const value = parseFloat(document.getElementById('parada-valor').value) || 0;
     if (!name) return alert('Ingresa el nombre.');
     const center = map ? map.getCenter() : { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
 
@@ -475,7 +552,7 @@ function guardarNuevaParada() {
     }
 
     getActiveRoute().stops.push({
-        id: 'stop-' + Date.now(), clientId: client.id, name, address, lat: center.lat, lng: center.lng, value, status: 'pending', paymentMethod: 'cash', creditAmount: 0, notes: '', photoData: ''
+        id: 'stop-' + Date.now(), clientId: client.id, name, address, lat: center.lat, lng: center.lng, value: 0, status: 'pending', paymentMethod: 'cash', posItems: [], notes: '', photoData: ''
     });
     saveAppState();
     document.getElementById('modal-parada').classList.add('hidden');
@@ -486,19 +563,17 @@ function abrirModalClienteExistente() {
     document.getElementById('stop-submenu').classList.add('hidden');
     if (appState.clients.length === 0) { alert('No hay clientes en la agenda.'); switchTab('agenda'); openClientModal(); return; }
     document.getElementById('select-agenda-client').innerHTML = appState.clients.map(c => `<option value="${c.id}">${c.name} - ${c.address}</option>`).join('');
-    document.getElementById('agenda-stop-value').value = '';
     document.getElementById('modal-route-add-stop').classList.remove('hidden');
 }
 
 function confirmAddStopFromAgenda() {
     const clientId = document.getElementById('select-agenda-client').value;
-    const value = parseFloat(document.getElementById('agenda-stop-value').value) || 0;
     const client = appState.clients.find(c => c.id === clientId);
     if (!client) return;
     const center = map ? map.getCenter() : { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
 
     getActiveRoute().stops.push({
-        id: 'stop-' + Date.now(), clientId: client.id, name: client.name, address: client.address, lat: center.lat + (Math.random()-0.5)*0.004, lng: center.lng + (Math.random()-0.5)*0.004, value, status: 'pending', paymentMethod: 'cash', creditAmount: 0, notes: '', photoData: ''
+        id: 'stop-' + Date.now(), clientId: client.id, name: client.name, address: client.address, lat: center.lat + (Math.random()-0.5)*0.004, lng: center.lng + (Math.random()-0.5)*0.004, value: 0, status: 'pending', paymentMethod: 'cash', posItems: [], notes: '', photoData: ''
     });
     saveAppState();
     document.getElementById('modal-route-add-stop').classList.add('hidden');
@@ -541,7 +616,7 @@ function renderMapMarkersAndRoute() {
         coords.push([stop.lat, stop.lng]);
         const color = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
         const marker = L.circleMarker([stop.lat, stop.lng], { radius: 10, fillColor: color, color: '#09090b', weight: 2, fillOpacity: 0.95 }).addTo(map);
-        marker.bindPopup(`<b>#${index + 1} ${stop.name}</b><br>${stop.address}<br>Valor: $${stop.value.toLocaleString()}`);
+        marker.bindPopup(`<b>#${index + 1} ${stop.name}</b><br>${stop.address}<br>Total: $${(stop.value || 0).toLocaleString()}`);
         stopMarkers.push(marker);
     });
     if (coords.length > 1) routePolyline = L.polyline(coords, { color: '#06b6d4', weight: 3, dashArray: '6, 6' }).addTo(map);
@@ -645,21 +720,38 @@ function saveEvidence() {
     stop.notes = notes;
     stop.photoData = currentCapturedPhotoData;
 
-    if (status === 'delivered' && method === 'credit') {
-        const creditVal = parseFloat(document.getElementById('evidence-credit-amount').value) || stop.value || 0;
-        const creditNote = document.getElementById('evidence-credit-note').value.trim() || 'Crédito';
-        stop.creditAmount = creditVal;
+    let totalSale = 0;
+    let totalCost = 0;
 
-        const client = appState.clients.find(c => c.id === stop.clientId || c.name === stop.name);
-        if (client) {
-            client.debt = (client.debt || 0) + creditVal;
-            client.creditHistory.push({ date: new Date().toLocaleDateString(), type: 'credit', amount: creditVal, note: creditNote });
+    if (status === 'delivered') {
+        stop.posItems = [...activePosCartItems];
+        stop.posItems.forEach(i => {
+            totalSale += i.qty * i.price;
+            const prod = appState.inventory.find(p => p.id === i.productId);
+            if (prod) {
+                totalCost += i.qty * (prod.cost || 0);
+                prod.stock = Math.max(0, prod.stock - i.qty); // Descuento de stock en ruta
+            }
+        });
+        stop.value = totalSale;
+        stop.cost = totalCost;
+
+        if (method === 'credit') {
+            const creditNote = document.getElementById('evidence-credit-note').value.trim() || 'Crédito Venta';
+            stop.creditNote = creditNote;
+            const client = appState.clients.find(c => c.id === stop.clientId || c.name === stop.name);
+            if (client) {
+                client.debt = (client.debt || 0) + totalSale;
+                client.creditHistory.push({ date: new Date().toLocaleDateString(), type: 'credit', amount: totalSale, note: creditNote });
+            }
         }
     } else {
-        stop.creditAmount = 0;
+        stop.posItems = [];
+        stop.value = 0;
     }
 
     saveAppState();
+    queueOutboxSync({ type: 'STOP_UPDATE', stop, driver: appState.driver.name });
     document.getElementById('modal-evidence').classList.add('hidden');
     renderAllViews();
 }
@@ -667,6 +759,7 @@ function saveEvidence() {
 function renderAllViews() {
     renderRoutesView();
     renderAgendaView();
+    renderInventoryPOSView();
     renderFinancesView();
     renderMapMarkersAndRoute();
     initIconsSafe();
@@ -698,7 +791,7 @@ function renderRoutesView() {
     }
 
     container.innerHTML = route.stops.map((s, idx) => {
-        const badge = s.status === 'delivered' ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">Entregado</span>` : s.status === 'rejected' ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400">Rechazado</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400">Pendiente</span>`;
+        const badge = s.status === 'delivered' ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">Venta Exitosa</span>` : s.status === 'rejected' ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400">Rechazado</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400">Pendiente</span>`;
         return `
         <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex items-center justify-between gap-3">
             <div class="space-y-1">
@@ -711,7 +804,7 @@ function renderRoutesView() {
                 <div class="text-[11px] text-neutral-400">${s.address}</div>
                 <div class="text-xs font-black text-emerald-400">$${(s.value || 0).toLocaleString()}</div>
             </div>
-            <button onclick="openEvidenceModal('${s.id}')" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black px-3.5 py-2.5 rounded-xl text-xs shrink-0">Gestionar</button>
+            <button onclick="openEvidenceModal('${s.id}')" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black px-3.5 py-2.5 rounded-xl text-xs shrink-0">POS / Visita</button>
         </div>`;
     }).join('');
 }
@@ -737,6 +830,25 @@ function renderAgendaView() {
     }).join('');
 }
 
+function renderInventoryPOSView() {
+    const container = document.getElementById('lista-inventario-pos');
+    if (appState.inventory.length === 0) {
+        container.innerHTML = `<div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center text-neutral-500 text-xs">No hay productos en el inventario.</div>`;
+        return;
+    }
+    container.innerHTML = appState.inventory.map(p => `
+        <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex items-center justify-between">
+            <div class="space-y-1">
+                <strong class="text-white text-xs block">${p.name}</strong>
+                <span class="text-[11px] text-emerald-400 font-bold">Precio: $${p.price.toLocaleString()}</span> <span class="text-[10px] text-neutral-500">(Costo: $${(p.cost || 0).toLocaleString()})</span>
+            </div>
+            <div class="text-right">
+                <span class="text-[10px] text-neutral-400 block font-bold">Stock Vehículo</span>
+                <strong class="text-cyan-400 text-sm font-black">${p.stock} un.</strong>
+            </div>
+        </div>`).join('');
+}
+
 const DENOMINATIONS = [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100];
 function initCashDenominations() {
     const container = document.getElementById('denominations-container');
@@ -757,30 +869,34 @@ function addExpense() {
     document.getElementById('expense-concept').value = ''; document.getElementById('expense-amount').value = '';
     saveAppState(); renderFinancesView();
 }
+
 function renderFinancesView() {
     let physicalTotal = 0;
     DENOMINATIONS.forEach(d => { physicalTotal += d * (appState.cashCounts[d] || 0); });
     document.getElementById('counter-total-display').textContent = `$${physicalTotal.toLocaleString()}`;
 
-    let cash = 0, transfer = 0, credit = 0;
+    let cash = 0, transfer = 0, credit = 0, totalCostSold = 0;
     getActiveRoute().stops.forEach(s => {
         if (s.status === 'delivered') {
-            if (s.paymentMethod === 'cash') cash += (s.value || 0);
-            else if (s.paymentMethod === 'transfer' || s.paymentMethod === 'qr') transfer += (s.value || 0);
-            else if (s.paymentMethod === 'credit') credit += (s.creditAmount || s.value || 0);
+            const val = s.value || 0;
+            totalCostSold += s.cost || 0;
+            if (s.paymentMethod === 'cash') cash += val;
+            else if (s.paymentMethod === 'transfer' || s.paymentMethod === 'qr') transfer += val;
+            else if (s.paymentMethod === 'credit') credit += val;
         }
     });
     const exp = appState.expenses.reduce((a, b) => a + b.amount, 0);
     const diff = physicalTotal - (cash - exp);
-    const net = physicalTotal + transfer;
+    const grossTotalSales = cash + transfer + credit;
+    const netProfit = grossTotalSales - totalCostSold - exp;
 
     document.getElementById('summary-facturado').textContent = `$${cash.toLocaleString()}`;
     document.getElementById('summary-fisico').textContent = `$${physicalTotal.toLocaleString()}`;
     document.getElementById('summary-transfer').textContent = `$${transfer.toLocaleString()}`;
     document.getElementById('summary-credit').textContent = `$${credit.toLocaleString()}`;
     document.getElementById('summary-diff').textContent = `${diff >= 0 ? '+' : ''}$${diff.toLocaleString()}`;
-    document.getElementById('summary-neto-total').textContent = `$${net.toLocaleString()}`;
-    document.getElementById('final-balance-badge').textContent = `$${net.toLocaleString()} Neto`;
+    document.getElementById('summary-profit').textContent = `$${netProfit.toLocaleString()}`;
+    document.getElementById('final-balance-badge').textContent = `$${(cash + transfer).toLocaleString()} Recaudados`;
 
     document.getElementById('expenses-list').innerHTML = appState.expenses.map(e => `
         <div class="flex justify-between text-xs bg-neutral-950 px-3 py-2 rounded-xl border border-neutral-800">
@@ -805,7 +921,7 @@ function createNewRoute() {
 }
 function changeTransportMode(mode) {
     appState.transportMode = mode;
-    document.getElementById('transport-icon-indicator').textContent = { walk: '🚶', bike: '🚲', moto: '🏍️', car: '🚗', truck: '🚚' }[mode] || '🚗';
+    document.getElementById('transport-icon-indicator').textContent = { walk: '🚶', bike: '🚲', moto: '🏍️', car: '🚗', truck: '🚚' }[mode] || '🏍️';
     saveAppState();
 }
 function openSheetsConfigModal() { document.getElementById('cfg-sheets-url').value = appState.sheetsUrl || ''; document.getElementById('modal-sheets-config').classList.remove('hidden'); }
@@ -851,7 +967,7 @@ async function startDownloadingRouteMapTiles() {
         }
     });
 
-    const cache = await caches.open('routelogix-enterprise-v30-offline');
+    const cache = await caches.open('routelogix-enterprise-v31-offline');
     let done = 0;
     for (const url of urls) {
         try {
@@ -866,7 +982,7 @@ async function startDownloadingRouteMapTiles() {
 }
 
 async function clearOfflineMapStorage() {
-    const cache = await caches.open('routelogix-enterprise-v30-offline');
+    const cache = await caches.open('routelogix-enterprise-v31-offline');
     const keys = await cache.keys();
     for (const req of keys) { if (req.url.includes('tile.openstreetmap.org')) await cache.delete(req); }
     document.getElementById('offline-tiles-count').textContent = '0 tiles';
@@ -905,11 +1021,12 @@ function importarArchivoRoutin(e) {
             if (data.routeExport) {
                 appState.routes.push(data.routeExport);
                 appState.activeRouteId = data.routeExport.id;
-            } else {
-                appState = { ...appState, ...data };
+            }
+            if (data.inventory) {
+                appState.inventory = data.inventory;
             }
             saveAppState(); renderAllViews();
-            alert('✅ Ruta importada correctamente.');
+            alert('✅ Ruta e inventario importados correctamente.');
         } catch (err) {
             alert('Archivo incompatible.');
         }
