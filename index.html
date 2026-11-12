@@ -3,31 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RouteLogix Pro | Enterprise v28</title>
+    <title>RouteLogix Pro | Enterprise v29 Offline-First</title>
     
     <meta name="theme-color" content="#030712">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="./manifest.json">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Leaflet CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+    <!-- Estilos locales críticos primero para garantizar renderizado inmediato sin señal -->
     <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Scripts externos con carga segura (no bloqueante) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body class="h-full text-gray-100 bg-neutral-950 flex flex-col justify-between selection:bg-cyan-500 selection:text-black overflow-hidden font-sans">
 
-    <!-- AUTH SCREEN -->
+    <!-- AUTH SCREEN (Con acceso Offline Garantizado) -->
     <div id="auth-screen" class="fixed inset-0 z-50 bg-neutral-950/95 backdrop-blur-xl flex flex-col items-center justify-center p-6">
-        <div class="w-full max-w-sm bg-neutral-900/90 border border-cyan-500/30 rounded-3xl p-7 shadow-[0_0_50px_rgba(6,182,212,0.15)] space-y-6">
+        <div class="w-full max-w-sm bg-neutral-900/90 border border-cyan-500/30 rounded-3xl p-7 shadow-2xl space-y-5">
             <div class="text-center space-y-2">
-                <div class="w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 rounded-2xl flex items-center justify-center mx-auto mb-2 font-black text-2xl shadow-lg shadow-cyan-500/30">RL</div>
-                <h1 class="text-2xl font-black text-white tracking-wider bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">ROUTELOGIX PRO</h1>
-                <p class="text-xs text-neutral-400 font-medium">Enterprise v28 • Licenciamiento Google Sheets</p>
+                <div class="w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 rounded-2xl flex items-center justify-center mx-auto mb-2 font-black text-2xl shadow-lg">RL</div>
+                <h1 class="text-2xl font-black text-white tracking-wider">ROUTELOGIX PRO</h1>
+                <p class="text-xs text-neutral-400 font-medium">Enterprise v29 • Operación Continua Offline/Online</p>
             </div>
 
             <div id="form-login" class="space-y-3.5 text-xs">
@@ -36,127 +35,130 @@
                     <input type="text" id="login-name" placeholder="Ej. Carlos Pérez" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
                 </div>
                 <div>
-                    <label class="block text-neutral-400 font-medium mb-1.5">Correo Electrónico (Validación Licencia)</label>
+                    <label class="block text-neutral-400 font-medium mb-1.5">Correo Electrónico (Opcional sin señal)</label>
                     <input type="email" id="login-email" placeholder="cliente@empresa.com" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none transition">
                 </div>
                 <div id="login-error-msg" class="text-rose-400 font-bold text-center hidden"></div>
-                <button type="button" onclick="handleLoginWithSheetsValidation()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black py-3.5 rounded-xl shadow-lg shadow-cyan-500/20 transition-all active:scale-95">Verificar Licencia e Iniciar</button>
+                <button type="button" id="btn-login-submit" onclick="handleLoginWithSheetsValidation()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black py-3.5 rounded-xl shadow-lg transition-all active:scale-95">Iniciar Operación</button>
+                <button type="button" onclick="forceOfflineBypassLogin()" class="w-full bg-neutral-800 hover:bg-neutral-700 text-cyan-400 font-bold py-2.5 rounded-xl border border-neutral-700 transition">⚡ Entrar Directo (Modo Sin Señal)</button>
             </div>
             
             <div class="pt-2 border-t border-neutral-800 text-center">
-                <button onclick="openSheetsConfigModal()" class="text-[11px] text-cyan-400 underline font-bold">⚙️ Configurar Enlace de Google Sheets (Admin)</button>
+                <button onclick="openSheetsConfigModal()" class="text-[11px] text-neutral-400 hover:text-cyan-400 underline font-bold">⚙️ Configurar Enlace Google Sheets (Admin)</button>
             </div>
         </div>
     </div>
 
     <!-- TOP HEADER -->
-    <header class="bg-neutral-900/90 backdrop-blur-md border-b border-neutral-800/80 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-xl">
+    <header id="tour-header" class="bg-neutral-900/95 border-b border-neutral-800 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-xl">
         <div class="flex items-center space-x-3 cursor-pointer group" onclick="openDriverEditModal()">
-            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 font-black flex items-center justify-center text-sm shadow-md shadow-cyan-500/20 border border-cyan-400/30 group-hover:scale-105 transition">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 font-black flex items-center justify-center text-sm shadow-md border border-cyan-400/30">
                 <span id="driver-initials">CP</span>
             </div>
             <div>
                 <h1 id="driver-name-display" class="font-bold text-xs text-white tracking-wide">Conductor Asignado</h1>
                 <div class="flex items-center gap-2 mt-0.5">
                     <span id="network-status-badge" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                        <span id="network-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span id="network-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                         <span id="network-text">Online</span>
                     </span>
-                    <span class="text-neutral-600">•</span>
-                    <span id="outbox-sync-badge" class="text-[9px] text-amber-400 hidden font-bold">📤 Sincronizando...</span>
+                    <span id="outbox-sync-badge" class="text-[9px] text-amber-400 hidden font-bold">📤 Pendiente Sync</span>
                 </div>
             </div>
         </div>
-        <div class="flex items-center space-x-2">
-            <button id="pwa-install-btn" onclick="triggerPWAInstall()" class="hidden px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-neutral-950 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition animate-bounce">
-                <i data-lucide="download" class="w-3.5 h-3.5"></i> <span>Instalar</span>
+        <div class="flex items-center space-x-1.5">
+            <!-- Botón Tutorial Interactivo -->
+            <button onclick="startInteractiveTutorial(true)" class="p-2 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-400 rounded-xl text-xs flex items-center border border-cyan-500/30 transition" title="Ver Tutorial de la App">
+                <span class="font-black px-1">?</span>
             </button>
 
-            <button onclick="logoutSession()" class="px-3 py-2 bg-neutral-800 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center gap-1.5 border border-neutral-700/80 transition shadow-inner" title="Cambiar Conductor">
+            <button id="pwa-install-btn" onclick="triggerPWAInstall()" class="hidden px-2.5 py-2 bg-emerald-500 text-neutral-950 rounded-xl text-xs font-black flex items-center gap-1 shadow-lg">
+                <span>⬇ Instalar</span>
+            </button>
+
+            <button onclick="logoutSession()" class="p-2 bg-neutral-800 hover:bg-rose-500/20 text-rose-400 rounded-xl text-xs flex items-center border border-neutral-700 transition" title="Cambiar Conductor">
                 <i data-lucide="user-minus" class="w-4 h-4"></i>
-                <span class="font-bold hidden sm:inline">Cambiar Conductor</span>
             </button>
 
-            <button onclick="document.getElementById('import-file-input').click()" class="p-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs flex items-center border border-neutral-700/80 transition shadow-inner" title="Importar rutas">
-                <i data-lucide="folder-open" class="w-4 h-4 text-cyan-400"></i>
+            <button onclick="document.getElementById('import-file-input').click()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-cyan-400 rounded-xl text-xs flex items-center border border-neutral-700 transition" title="Importar respaldo JSON">
+                <i data-lucide="folder-open" class="w-4 h-4"></i>
             </button>
             <input type="file" id="import-file-input" class="hidden" accept=".bin,.json" onchange="importarArchivoRoutin(event)">
         </div>
     </header>
 
     <!-- MAIN APP VIEWCONTAINER -->
-    <main class="flex-1 overflow-y-auto w-full mx-auto pb-24 relative flex flex-col">
+    <main class="flex-1 overflow-y-auto w-full mx-auto pb-20 relative flex flex-col">
 
         <!-- MAP VIEW -->
         <section id="view-map" class="flex-1 flex flex-col relative h-full">
             <!-- Barra de Búsqueda Superior -->
-            <div class="absolute top-3 left-3 right-3 z-30 flex gap-2">
-                <div class="flex-1 bg-neutral-900/90 backdrop-blur-md border border-neutral-700/80 rounded-2xl flex items-center px-3.5 py-2.5 shadow-2xl">
-                    <i data-lucide="search" class="w-4 h-4 text-cyan-400 mr-2.5 shrink-0"></i>
+            <div id="tour-search" class="absolute top-3 left-3 right-3 z-30 flex gap-2">
+                <div class="flex-1 bg-neutral-900/95 border border-neutral-700 rounded-2xl flex items-center px-3.5 py-2.5 shadow-2xl">
+                    <i data-lucide="search" class="w-4 h-4 text-cyan-400 mr-2 shrink-0"></i>
                     <input type="text" id="map-search-input" placeholder="Buscar dirección o lugar..." onkeydown="if(event.key==='Enter') searchMapAddress()" class="w-full bg-transparent text-xs text-white focus:outline-none placeholder-neutral-500 font-medium">
                 </div>
-                <button onclick="searchMapAddress()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 px-4 rounded-2xl shadow-lg shadow-cyan-500/20 flex items-center justify-center text-xs font-bold transition">Ir</button>
+                <button onclick="searchMapAddress()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 px-4 rounded-2xl shadow-lg flex items-center justify-center text-xs font-black transition">Ir</button>
             </div>
 
-            <!-- Estilos de Mapa y Widgets Superiores (Organizados en una barra limpia) -->
-            <div class="absolute top-16 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
-                <!-- Selector de Estilo de Mapa -->
-                <div class="flex gap-1 bg-neutral-900/90 backdrop-blur-md p-1 rounded-2xl border border-neutral-700/80 text-[10px] shadow-2xl font-bold pointer-events-auto">
+            <!-- Estilos de Mapa y Velocímetro -->
+            <div id="tour-map-styles" class="absolute top-16 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
+                <div class="flex gap-1 bg-neutral-900/95 p-1 rounded-2xl border border-neutral-700 text-[10px] shadow-2xl font-bold pointer-events-auto">
                     <button onclick="setMapTileStyle('standard')" id="style-standard" class="px-2.5 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 transition">Clásico</button>
                     <button onclick="setMapTileStyle('dark')" id="style-dark" class="px-2.5 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Oscuro</button>
-                    <button onclick="setMapTileStyle('satellite')" id="style-satellite" class="px-2.5 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Satélite</button>
+                    <button onclick="setMapTileStyle('offline')" id="style-offline" class="px-2.5 py-1.5 rounded-xl text-neutral-300 hover:text-white transition">Táctico Offline</button>
                 </div>
 
-                <!-- Widgets de GPS y Offline (Compactos a la derecha) -->
                 <div class="flex flex-col items-end gap-1.5 pointer-events-auto">
-                    <div id="gps-speed-widget" class="bg-neutral-900/90 backdrop-blur-md border border-cyan-500/30 px-3 py-1.5 rounded-xl shadow-xl flex items-center space-x-2 text-xs">
+                    <div id="gps-speed-widget" class="bg-neutral-900/95 border border-cyan-500/30 px-3 py-1.5 rounded-xl shadow-xl flex items-center space-x-2 text-xs">
                         <div id="transport-icon-indicator" class="text-cyan-400 text-sm">🚗</div>
-                        <div>
-                            <div id="live-speed-display" class="text-white font-black text-xs">0.0 km/h</div>
-                        </div>
+                        <div id="live-speed-display" class="text-white font-black text-xs">0.0 km/h</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Mapa -->
-            <div id="map" class="w-full flex-1 absolute inset-0 z-0"></div>
+            <!-- Contenedor del Mapa con Respaldo Visual Offline -->
+            <div id="map" class="w-full flex-1 absolute inset-0 z-0 bg-slate-900"></div>
+            <div id="map-fallback-banner" class="hidden absolute top-28 left-3 right-3 z-20 bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold px-3 py-1.5 rounded-xl text-center backdrop-blur-md">
+                📡 Modo Mapa Táctico Offline Activo — GPS y marcadores operando localmente
+            </div>
             
             <div class="map-crosshair absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20 flex items-center justify-center">
-                <div class="w-10 h-10 border-2 border-dashed border-cyan-400 rounded-full animate-spin" style="animation-duration: 15s;"></div>
-                <div class="absolute w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_12px_#06b6d4]"></div>
+                <div class="w-9 h-9 border-2 border-dashed border-cyan-400 rounded-full"></div>
+                <div class="absolute w-2.5 h-2.5 bg-cyan-400 rounded-full"></div>
             </div>
 
-            <!-- Botones Flotantes Laterales (GPS y Mapa Offline) - Ubicados limpiamente arriba de la botonera inferior -->
-            <div class="absolute bottom-20 right-4 z-20 flex flex-col gap-2">
-                <button onclick="openOfflineDownloadModal()" class="w-11 h-11 bg-neutral-900/90 hover:bg-neutral-800 backdrop-blur-md border border-emerald-500/40 rounded-2xl flex items-center justify-center text-emerald-400 shadow-2xl transition" title="Mapa Offline">
+            <!-- Botones Flotantes Laterales -->
+            <div id="tour-gps-controls" class="absolute bottom-20 right-4 z-20 flex flex-col gap-2">
+                <button onclick="openOfflineDownloadModal()" class="w-11 h-11 bg-neutral-900/95 hover:bg-neutral-800 border border-emerald-500/40 rounded-2xl flex items-center justify-center text-emerald-400 shadow-2xl transition" title="Descargar Mapa Offline">
                     <i data-lucide="download-cloud" class="w-5 h-5"></i>
                 </button>
-                <button onclick="centrarGPS()" class="w-11 h-11 bg-neutral-900/90 hover:bg-neutral-800 backdrop-blur-md border border-neutral-700/80 rounded-2xl flex items-center justify-center text-cyan-400 shadow-2xl active:scale-95 transition" title="Mi Ubicación GPS">
+                <button onclick="centrarGPS()" class="w-11 h-11 bg-neutral-900/95 hover:bg-neutral-800 border border-neutral-700 rounded-2xl flex items-center justify-center text-cyan-400 shadow-2xl active:scale-95 transition" title="Centrar en mi GPS">
                     <i data-lucide="navigation" class="w-5 h-5"></i>
                 </button>
-                <button onclick="toggleTrackingLive()" id="tracking-toggle-btn" class="w-11 h-11 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 rounded-2xl shadow-2xl flex items-center justify-center active:scale-95 transition" title="GPS Vivo: ON">
-                    <i data-lucide="radio" class="w-5 h-5 animate-pulse"></i>
+                <button onclick="toggleTrackingLive()" id="tracking-toggle-btn" class="w-11 h-11 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 rounded-2xl shadow-2xl flex items-center justify-center active:scale-95 transition" title="Rastreo GPS en Vivo">
+                    <i data-lucide="radio" class="w-5 h-5"></i>
                 </button>
             </div>
 
             <!-- Botonera Inferior del Mapa -->
-            <div class="absolute bottom-4 left-0 right-0 z-20 px-4 flex gap-2.5">
+            <div id="tour-map-actions" class="absolute bottom-4 left-0 right-0 z-20 px-4 flex gap-2.5">
                 <div class="relative flex-1">
-                    <button onclick="toggleStopMenu()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 font-black py-3.5 px-4 rounded-2xl shadow-2xl shadow-cyan-500/20 flex items-center justify-center gap-2 border border-cyan-400/40 text-xs active:scale-95 transition">
+                    <button onclick="toggleStopMenu()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-neutral-950 font-black py-3.5 px-4 rounded-2xl shadow-2xl flex items-center justify-center gap-2 border border-cyan-400/40 text-xs active:scale-95 transition">
                         <i data-lucide="plus-circle" class="w-4 h-4"></i> Añadir Parada <i data-lucide="chevron-up" class="w-3.5 h-3.5 ml-1"></i>
                     </button>
-                    <div id="stop-submenu" class="hidden absolute bottom-16 left-0 right-0 bg-neutral-900/95 backdrop-blur-xl border border-cyan-500/30 rounded-2xl p-2 shadow-2xl space-y-1.5 text-xs">
-                        <button onclick="abrirModalParadaCentro()" class="w-full text-left px-3.5 py-3 rounded-xl hover:bg-neutral-800/80 flex items-center space-x-2.5 text-white transition">
+                    <div id="stop-submenu" class="hidden absolute bottom-16 left-0 right-0 bg-neutral-900 border border-cyan-500/30 rounded-2xl p-2 shadow-2xl space-y-1.5 text-xs">
+                        <button onclick="abrirModalParadaCentro()" class="w-full text-left px-3.5 py-3 rounded-xl hover:bg-neutral-800 flex items-center space-x-2.5 text-white transition">
                             <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i>
-                            <span class="font-medium">Añadir ubicación central del mapa</span>
+                            <span class="font-medium">Ubicación central del mapa (Mira)</span>
                         </button>
-                        <button onclick="abrirModalClienteExistente()" class="w-full text-left px-3.5 py-3 rounded-xl hover:bg-neutral-800/80 flex items-center space-x-2.5 text-white transition">
+                        <button onclick="abrirModalClienteExistente()" class="w-full text-left px-3.5 py-3 rounded-xl hover:bg-neutral-800 flex items-center space-x-2.5 text-white transition">
                             <i data-lucide="book-user" class="w-4 h-4 text-emerald-400"></i>
-                            <span class="font-medium">Seleccionar de la Agenda (Cliente)</span>
+                            <span class="font-medium">Seleccionar de la Agenda</span>
                         </button>
                     </div>
                 </div>
-                <button onclick="optimizarRutaInteligente()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-3.5 px-4 rounded-2xl shadow-2xl shadow-purple-600/20 flex items-center justify-center gap-1.5 text-xs active:scale-95 transition border border-purple-400/30" title="Optimización IA">
+                <button onclick="optimizarRutaInteligente()" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black py-3.5 px-4 rounded-2xl shadow-2xl flex items-center justify-center gap-1.5 text-xs active:scale-95 transition border border-purple-400/30">
                     <i data-lucide="zap" class="w-4 h-4"></i> Optimizar IA
                 </button>
             </div>
@@ -166,13 +168,18 @@
         <section id="view-routes" class="p-4 space-y-4 hidden flex-1 bg-neutral-950">
             <div class="flex justify-between items-center">
                 <h2 class="text-xs font-black text-cyan-400 uppercase tracking-widest">Gestión de Rutas TaT</h2>
-                <button onclick="openCreateRouteModal()" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 text-xs font-black px-3.5 py-2.5 rounded-xl flex items-center space-x-1.5 shadow-lg shadow-cyan-500/20 transition">
-                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-                    <span>Nueva Ruta</span>
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="exportarRespaldoJSON()" class="bg-neutral-800 hover:bg-neutral-700 text-cyan-400 text-xs font-bold px-3 py-2 rounded-xl border border-neutral-700 transition" title="Exportar respaldo">
+                        💾 Backup
+                    </button>
+                    <button onclick="openCreateRouteModal()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 text-xs font-black px-3.5 py-2 rounded-xl flex items-center space-x-1 shadow-lg transition">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                        <span>Nueva Ruta</span>
+                    </button>
+                </div>
             </div>
 
-            <div id="active-route-card" class="bg-neutral-900/90 backdrop-blur border border-cyan-500/30 rounded-3xl p-5 shadow-2xl space-y-4">
+            <div id="active-route-card" class="bg-neutral-900 border border-cyan-500/30 rounded-3xl p-5 shadow-2xl space-y-4">
                 <div class="flex justify-between items-start">
                     <div>
                         <span class="bg-cyan-500/20 text-cyan-400 text-[10px] font-black px-2.5 py-1 rounded-full uppercase border border-cyan-500/30">Ruta Activa</span>
@@ -181,34 +188,32 @@
                     <span class="px-3 py-1 rounded-xl bg-neutral-950 text-emerald-400 text-xs font-bold border border-neutral-800">En Curso</span>
                 </div>
 
-                <div class="bg-neutral-950/80 p-3 rounded-2xl border border-neutral-800 space-y-2 text-xs">
-                    <label class="block text-neutral-400 font-bold flex items-center gap-2">
-                        <i data-lucide="navigation" class="w-4 h-4 text-cyan-400"></i> Medio de Transporte & GPS Config:
-                    </label>
-                    <select id="transport-mode-select" onchange="changeTransportMode(this.value)" class="w-full bg-neutral-900 border border-neutral-700/80 rounded-xl p-3 text-white font-bold focus:outline-none focus:border-cyan-500 transition">
+                <div class="bg-neutral-950 p-3 rounded-2xl border border-neutral-800 space-y-2 text-xs">
+                    <label class="block text-neutral-400 font-bold">Medio de Transporte:</label>
+                    <select id="transport-mode-select" onchange="changeTransportMode(this.value)" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-2.5 text-white font-bold focus:outline-none">
                         <option value="walk">🚶 A pie (~5 km/h)</option>
                         <option value="bike">🚲 Bicicleta (~15 km/h)</option>
                         <option value="moto">🏍️ Moto (~35 km/h)</option>
-                        <option value="car">🚗 Carro pequeño (~30 km/h)</option>
+                        <option value="car" selected>🚗 Carro pequeño (~30 km/h)</option>
                         <option value="truck">🚚 Camión (~20 km/h)</option>
                     </select>
                 </div>
 
                 <div class="grid grid-cols-4 gap-2 text-center text-xs">
-                    <div class="bg-neutral-950/60 p-2.5 rounded-2xl border border-neutral-800/80">
+                    <div class="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800">
                         <span class="text-[9px] text-neutral-400 block uppercase font-bold">Distancia</span>
                         <strong id="metric-km" class="text-white text-xs font-black">0.0 km</strong>
                     </div>
-                    <div class="bg-neutral-950/60 p-2.5 rounded-2xl border border-neutral-800/80">
-                        <span class="text-[9px] text-neutral-400 block uppercase font-bold">Tiempo Est.</span>
+                    <div class="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800">
+                        <span class="text-[9px] text-neutral-400 block uppercase font-bold">Tiempo</span>
                         <strong id="metric-time" class="text-amber-400 text-xs font-black">0 min</strong>
                     </div>
-                    <div class="bg-neutral-950/60 p-2.5 rounded-2xl border border-neutral-800/80">
-                        <span class="text-[9px] text-neutral-400 block uppercase font-bold">Clientes</span>
+                    <div class="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800">
+                        <span class="text-[9px] text-neutral-400 block uppercase font-bold">Paradas</span>
                         <strong id="metric-clients" class="text-cyan-400 text-xs font-black">0</strong>
                     </div>
-                    <div class="bg-neutral-950/60 p-2.5 rounded-2xl border border-neutral-800/80">
-                        <span class="text-[9px] text-neutral-400 block uppercase font-bold">Dinero</span>
+                    <div class="bg-neutral-950 p-2.5 rounded-2xl border border-neutral-800">
+                        <span class="text-[9px] text-neutral-400 block uppercase font-bold">Valor</span>
                         <strong id="metric-money" class="text-emerald-400 text-xs font-black">$0</strong>
                     </div>
                 </div>
@@ -229,19 +234,20 @@
                 </div>
             </div>
 
-            <div class="text-xs font-black text-neutral-400 uppercase tracking-widest pt-2">Listado General de Rutas & Paradas</div>
+            <div class="text-xs font-black text-neutral-400 uppercase tracking-widest pt-2">Paradas de la Ruta Activa</div>
             <div id="routes-list-container" class="space-y-3"></div>
         </section>
 
         <!-- AGENDA VIEW -->
         <section id="view-agenda" class="p-4 space-y-4 hidden flex-1 bg-neutral-950">
             <div class="flex justify-between items-center">
-                <h2 class="text-xs font-black text-cyan-400 uppercase tracking-widest">Agenda & Cartera de Clientes</h2>
-                <button onclick="openClientModal()" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-neutral-950 text-xs font-black px-3.5 py-2.5 rounded-xl flex items-center space-x-1.5 shadow-lg shadow-cyan-500/20 transition">
+                <h2 class="text-xs font-black text-cyan-400 uppercase tracking-widest">Agenda & Ficha de Clientes</h2>
+                <button onclick="openClientModal()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 text-xs font-black px-3.5 py-2.5 rounded-xl flex items-center space-x-1.5 shadow-lg transition">
                     <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
                     <span>Nuevo Cliente</span>
                 </button>
             </div>
+            <p class="text-[11px] text-neutral-400">Las deudas por créditos otorgados durante entregas se reflejan automáticamente en la ficha de cada cliente.</p>
             <div id="lista-agenda" class="space-y-3"></div>
         </section>
 
@@ -250,39 +256,38 @@
             <div class="bg-neutral-900 border border-cyan-500/30 rounded-3xl p-5 shadow-xl space-y-4">
                 <div class="flex justify-between items-center border-b border-neutral-800 pb-3">
                     <div>
-                        <span class="text-xs text-neutral-400 uppercase font-black tracking-wider">Arqueo de Turno Ciego</span>
+                        <span class="text-xs text-neutral-400 uppercase font-black tracking-wider">Arqueo Físico de Caja</span>
                         <div id="counter-total-display" class="text-2xl font-black text-cyan-400 mt-0.5">$0</div>
                     </div>
                     <button onclick="resetCashCounter()" class="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs px-3.5 py-2 rounded-xl border border-neutral-700 font-bold transition">Limpiar</button>
                 </div>
-                <div class="text-[11px] text-neutral-400 font-medium">Ingrese el conteo físico de billetes y monedas antes del cierre. El sistema calculará el desfase automáticamente.</div>
-                <div id="denominations-container" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+                <div id="denominations-container" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
             </div>
 
             <div class="bg-neutral-900 border border-neutral-800 rounded-3xl p-5 shadow-xl space-y-3.5">
                 <h3 class="text-xs font-black text-white uppercase tracking-wider">Registrar Gasto Operativo</h3>
                 <div class="space-y-2.5 text-xs">
-                    <input type="text" id="expense-concept" placeholder="Concepto (Gasolina, Peaje...)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
+                    <input type="text" id="expense-concept" placeholder="Concepto (Gasolina, Peaje...)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
                     <div class="flex gap-2.5">
-                        <input type="number" id="expense-amount" placeholder="Monto ($)" class="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
-                        <button onclick="addExpense()" class="bg-rose-600 hover:bg-rose-500 text-white font-black px-5 py-3 rounded-xl shadow-lg shadow-rose-600/20 transition">Añadir</button>
+                        <input type="number" id="expense-amount" placeholder="Monto ($)" class="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
+                        <button onclick="addExpense()" class="bg-rose-600 hover:bg-rose-500 text-white font-black px-5 py-3 rounded-xl transition">Añadir</button>
                     </div>
                 </div>
                 <div id="expenses-list" class="space-y-2 pt-1"></div>
             </div>
 
-            <div class="bg-gradient-to-br from-neutral-900 to-neutral-900/90 border border-cyan-500/40 rounded-3xl p-5 shadow-2xl space-y-4">
+            <div class="bg-neutral-900 border border-cyan-500/40 rounded-3xl p-5 shadow-2xl space-y-4">
                 <div class="flex justify-between items-center border-b border-neutral-800 pb-3">
                     <span class="text-xs font-black text-cyan-400 uppercase tracking-widest">Cierre & Cuadre TaT</span>
-                    <span id="final-balance-badge" class="text-xs font-black text-emerald-400 bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/30">$0 Neto</span>
+                    <span id="final-balance-badge" class="text-xs font-black text-emerald-400 bg-emerald-500/20 px-3 py-1 rounded-full">$0 Neto</span>
                 </div>
                 <div class="grid grid-cols-2 gap-2.5 text-xs">
                     <div class="bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
-                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">1. Total Facturado</span>
+                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">1. Entregado Efectivo</span>
                         <strong id="summary-facturado" class="text-white text-sm font-black">$0</strong>
                     </div>
                     <div class="bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
-                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">2. Dinero Físico</span>
+                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">2. Conteo Físico</span>
                         <strong id="summary-fisico" class="text-cyan-400 text-sm font-black">$0</strong>
                     </div>
                     <div class="bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
@@ -290,12 +295,16 @@
                         <strong id="summary-transfer" class="text-teal-400 text-sm font-black">$0</strong>
                     </div>
                     <div class="bg-neutral-950 p-3 rounded-2xl border border-neutral-800">
-                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">Desfase / Cuadre</span>
-                        <strong id="summary-diff" class="text-amber-400 text-sm font-black">$0</strong>
+                        <span class="text-[10px] text-neutral-400 block font-bold uppercase">4. Créditos Otorgados</span>
+                        <strong id="summary-credit" class="text-amber-400 text-sm font-black">$0</strong>
                     </div>
                 </div>
                 <div class="bg-neutral-950 p-3.5 rounded-2xl border border-cyan-500/30 flex justify-between items-center">
-                    <span class="text-xs text-neutral-200 font-bold">Total Neto Consolidado:</span>
+                    <span class="text-xs text-neutral-200 font-bold">Desfase Efectivo vs Arqueo:</span>
+                    <span id="summary-diff" class="text-sm font-black text-amber-400">$0</span>
+                </div>
+                <div class="bg-neutral-950 p-3.5 rounded-2xl border border-emerald-500/30 flex justify-between items-center">
+                    <span class="text-xs text-neutral-200 font-bold">Total Recaudado Neto:</span>
                     <span id="summary-neto-total" class="text-base font-black text-emerald-400">$0</span>
                 </div>
             </div>
@@ -303,7 +312,7 @@
     </main>
 
     <!-- BOTTOM NAVBAR -->
-    <nav class="bg-neutral-900/95 backdrop-blur-xl border-t border-neutral-800/80 fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto shadow-2xl">
+    <nav id="tour-navbar" class="bg-neutral-900/95 border-t border-neutral-800 fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto shadow-2xl">
         <div class="grid grid-cols-4 py-2.5">
             <button onclick="switchTab('map')" id="nav-btn-map" class="flex flex-col items-center justify-center text-cyan-400 transition">
                 <i data-lucide="map" class="w-5 h-5"></i>
@@ -324,110 +333,94 @@
         </div>
     </nav>
 
+    <!-- TUTORIAL INTERACTIVO OVERLAY -->
+    <div id="tutorial-overlay" class="fixed inset-0 z-50 hidden pointer-events-auto">
+        <div class="absolute inset-0 bg-neutral-950/75 backdrop-blur-xs" onclick="nextTutorialStep()"></div>
+        <div id="tutorial-spotlight" class="fixed border-2 border-cyan-400 rounded-2xl shadow-[0_0_0_9999px_rgba(3,7,18,0.78)] pointer-events-none transition-all duration-300"></div>
+        <div id="tutorial-card" class="fixed z-50 w-80 max-w-[90vw] bg-neutral-900 border border-cyan-400/60 rounded-3xl p-5 shadow-2xl space-y-3 text-xs transition-all duration-300">
+            <div class="flex justify-between items-center">
+                <span id="tutorial-step-badge" class="bg-cyan-500/20 text-cyan-400 font-black px-2.5 py-1 rounded-full text-[10px] border border-cyan-500/30">Paso 1 de 6</span>
+                <button onclick="endInteractiveTutorial()" class="text-neutral-400 hover:text-white text-[11px] font-bold">Saltar tutorial ✕</button>
+            </div>
+            <h3 id="tutorial-title" class="text-sm font-black text-white">Título del Elemento</h3>
+            <p id="tutorial-desc" class="text-neutral-300 leading-relaxed text-[11px]">Descripción de para qué sirve este elemento.</p>
+            <div class="flex justify-between items-center pt-2">
+                <button id="tutorial-prev-btn" onclick="prevTutorialStep()" class="px-3 py-2 rounded-xl bg-neutral-800 text-neutral-300 font-bold hidden">← Anterior</button>
+                <button id="tutorial-next-btn" onclick="nextTutorialStep()" class="ml-auto px-4 py-2 rounded-xl bg-cyan-500 text-neutral-950 font-black shadow-lg">Siguiente →</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODALS -->
-    <div id="modal-sheets-config" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <!-- Nuevo Cliente (SIN campos de crédito ni deuda, limpio) -->
+    <div id="modal-client" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
-            <h3 class="font-black text-sm text-cyan-400">Control de Licencias (Google Sheets)</h3>
-            <p class="text-neutral-400 text-[11px]">Pega la URL de tu Google Apps Script (Web App) conectado al Google Sheets para validar licencias y vetar clientes automáticamente.</p>
-            <div class="space-y-3">
+            <h3 class="font-black text-sm text-cyan-400">Registrar Nuevo Cliente</h3>
+            <div class="space-y-2.5">
                 <div>
-                    <label class="block text-neutral-400 font-medium mb-1">URL Web App Google Sheets</label>
-                    <input type="text" id="cfg-sheets-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
+                    <label class="block text-neutral-400 mb-1">Nombre del Negocio / Cliente *</label>
+                    <input type="text" id="client-name" placeholder="Ej. Tienda Don José" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-neutral-400 mb-1">Dirección *</label>
+                    <input type="text" id="client-address" placeholder="Ej. Calle 45 # 12-30" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-neutral-400 mb-1">Teléfono / WhatsApp</label>
+                    <input type="text" id="client-phone" placeholder="Ej. 3102345678" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-neutral-400 mb-1">Notas de Ubicación / Horario</label>
+                    <textarea id="client-obs" rows="2" placeholder="Ej. Portón verde, atiende de 8am a 5pm..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500"></textarea>
                 </div>
                 <div class="flex gap-2.5 pt-2">
-                    <button onclick="saveSheetsConfig()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Guardar URL</button>
-                    <button onclick="document.getElementById('modal-sheets-config').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold transition">Cerrar</button>
+                    <button onclick="handleClientSubmitDirect()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg transition">Guardar Cliente</button>
+                    <button onclick="document.getElementById('modal-client').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold transition">Cancelar</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="modal-offline-download" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <!-- Ficha Detallada del Cliente (Donde se gestiona/abona crédito si tiene deuda) -->
+    <div id="modal-client-detail" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
-            <div class="flex items-center space-x-3.5">
-                <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold border border-emerald-500/30">
-                    <i data-lucide="download-cloud" class="w-6 h-6"></i>
-                </div>
+            <div class="flex justify-between items-start">
                 <div>
-                    <h3 class="font-black text-sm text-white">Almacenamiento Offline</h3>
-                    <p class="text-[11px] text-neutral-400">Guarda los mosaicos del mapa localmente vía IndexedDB.</p>
+                    <span class="text-[10px] font-black uppercase text-cyan-400">Ficha del Cliente</span>
+                    <h3 id="detail-client-name" class="font-black text-base text-white mt-0.5">Nombre Cliente</h3>
+                </div>
+                <button onclick="document.getElementById('modal-client-detail').classList.add('hidden')" class="text-neutral-400 hover:text-white font-bold">✕</button>
+            </div>
+            <input type="hidden" id="detail-client-id">
+            <div class="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 space-y-1.5">
+                <div class="text-neutral-400">📍 <span id="detail-client-address" class="text-white font-medium"></span></div>
+                <div class="text-neutral-400">📞 <span id="detail-client-phone" class="text-white font-medium"></span></div>
+                <div class="text-neutral-400">📝 <span id="detail-client-obs" class="text-neutral-300"></span></div>
+            </div>
+
+            <!-- Sección de Cartera / Crédito (Solo activa/visible cuando el cliente tiene deuda o historial de crédito) -->
+            <div id="detail-credit-section" class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-3 hidden">
+                <div class="flex justify-between items-center">
+                    <span class="text-amber-400 font-black uppercase text-[11px]">💳 Cartera / Crédito Activo</span>
+                    <strong id="detail-client-debt" class="text-rose-400 text-base font-black">$0</strong>
+                </div>
+                <div id="detail-credit-history" class="space-y-1 max-h-24 overflow-y-auto text-[10px] text-neutral-300 border-t border-amber-500/20 pt-2"></div>
+                <div class="flex gap-2 pt-1">
+                    <input type="number" id="abono-amount-input" placeholder="Monto abono ($)" class="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:outline-none">
+                    <button onclick="registrarAbonoCliente()" class="bg-emerald-500 text-neutral-950 font-black px-3.5 py-2.5 rounded-xl transition">Abonar</button>
                 </div>
             </div>
-            <div class="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-neutral-400 font-medium">Tiles en Memoria:</span>
-                    <strong id="offline-tiles-count" class="text-emerald-400 font-bold">0 tiles</strong>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-neutral-400 font-medium">Estado:</span>
-                    <strong id="offline-sync-status" class="text-cyan-400 font-bold">Listo para descargar</strong>
-                </div>
-                <div id="download-progress-container" class="w-full bg-neutral-800 h-2.5 rounded-full overflow-hidden hidden">
-                    <div id="download-progress-bar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
-                </div>
-            </div>
-            <div class="space-y-2.5">
-                <button onclick="startDownloadingRouteMapTiles()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-neutral-950 font-black py-3.5 rounded-2xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2">
-                    <i data-lucide="download" class="w-4 h-4"></i> Descargar Mapa de la Ruta Activa
-                </button>
-                <button onclick="clearOfflineMapStorage()" class="w-full bg-neutral-800 hover:bg-neutral-700 text-rose-400 font-bold py-3 rounded-2xl transition">
-                    Borrar Mosaicos Almacenados
-                </button>
-            </div>
-            <div class="flex justify-end pt-1">
-                <button onclick="document.getElementById('modal-offline-download').classList.add('hidden')" class="text-neutral-400 hover:text-white font-bold">Cerrar</button>
+
+            <div id="detail-no-credit-msg" class="text-center text-neutral-500 text-[11px] py-2">
+                ✅ Cliente sin saldo pendiente de crédito.
             </div>
         </div>
     </div>
 
-    <div id="modal-driver" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
-            <h3 class="font-black text-sm text-cyan-400">Editar Perfil del Conductor</h3>
-            <div class="space-y-2">
-                <label class="block text-neutral-400 font-medium">Nombre del Conductor</label>
-                <input type="text" id="edit-driver-name" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:border-cyan-500 focus:outline-none">
-            </div>
-            <div class="flex gap-2.5 pt-2">
-                <button onclick="saveDriverProfile()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Guardar</button>
-                <button onclick="document.getElementById('modal-driver').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold transition">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-route-add-stop" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
-            <h3 class="font-black text-sm text-cyan-400">Añadir Parada a la Ruta</h3>
-            <input type="hidden" id="target-route-id-input">
-            
-            <div class="flex bg-neutral-950 p-1.5 rounded-xl border border-neutral-800 text-xs font-bold mb-2">
-                <button type="button" onclick="switchAddStopMode('agenda')" id="add-stop-tab-agenda" class="flex-1 py-2 rounded-lg bg-cyan-500 text-neutral-950 transition">Desde Agenda</button>
-                <button type="button" onclick="switchAddStopMode('new')" id="add-stop-tab-new" class="flex-1 py-2 rounded-lg text-neutral-400 hover:text-white transition">Nuevo Cliente</button>
-            </div>
-
-            <div id="add-stop-form-agenda" class="space-y-3">
-                <div>
-                    <label class="block text-neutral-400 font-medium mb-1">Seleccionar Cliente</label>
-                    <select id="select-agenda-client" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-bold focus:outline-none focus:border-cyan-500"></select>
-                </div>
-                <button onclick="confirmAddStopFromAgenda()" class="w-full bg-cyan-500 text-neutral-950 font-black py-3 rounded-xl shadow transition">Añadir Parada</button>
-            </div>
-
-            <div id="add-stop-form-new" class="space-y-2.5 hidden">
-                <input type="text" id="new-stop-name" placeholder="Nombre del Negocio / Cliente" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <input type="text" id="new-stop-address" placeholder="Dirección (ej. Calle 45 # 12-30)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <input type="number" id="new-stop-value" placeholder="Valor de factura ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <button onclick="confirmAddStopNew()" class="w-full bg-emerald-500 text-neutral-950 font-black py-3 rounded-xl shadow transition">Crear y Añadir</button>
-            </div>
-
-            <div class="flex justify-end pt-1">
-                <button onclick="document.getElementById('modal-route-add-stop').classList.add('hidden')" class="text-neutral-400 hover:text-white font-bold">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- Modal Gestión de Entrega (Aquí se solicita Crédito si aplica) -->
     <div id="modal-evidence" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-md rounded-3xl p-6 space-y-3.5 shadow-2xl text-xs max-h-[95vh] overflow-y-auto">
-            <h3 class="font-black text-sm text-cyan-400">Gestión de Entrega, Pago, Foto & Firma</h3>
+            <h3 class="font-black text-sm text-cyan-400">Gestión de Entrega y Cobro</h3>
             <input type="hidden" id="evidence-stop-id">
             
             <div class="space-y-1.5">
@@ -443,33 +436,46 @@
                 <select id="evidence-payment-method" onchange="togglePaymentDetails(this.value)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-bold focus:outline-none">
                     <option value="cash">💵 Efectivo (Suma a Caja Física)</option>
                     <option value="transfer">💳 Transferencia / Cuenta Bancaria</option>
-                    <option value="qr">📷 Código QR (Nequi / DaviPlata / Bancolombia)</option>
+                    <option value="qr">📷 Código QR (Nequi / DaviPlata)</option>
+                    <option value="credit">📝 Crédito / Fiado (Carga a Ficha del Cliente)</option>
                 </select>
             </div>
 
+            <!-- Caja de Crédito (Solo se muestra si en la entrega se pide crédito) -->
+            <div id="payment-credit-box" class="bg-amber-500/10 border border-amber-500/40 rounded-2xl p-3.5 space-y-2.5 hidden">
+                <span class="text-amber-400 font-black text-[11px] uppercase block">📝 Registro de Crédito en Entrega</span>
+                <p class="text-[10px] text-neutral-300">Este valor se cargará automáticamente como deuda en la ficha del cliente dentro de la Agenda.</p>
+                <div>
+                    <label class="block text-neutral-400 mb-1">Valor a Crédito ($)</label>
+                    <input type="number" id="evidence-credit-amount" class="w-full bg-neutral-950 border border-amber-500/40 rounded-xl p-2.5 text-white font-bold focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-neutral-400 mb-1">Plazo / Compromiso de Pago</label>
+                    <input type="text" id="evidence-credit-note" placeholder="Ej. Paga el próximo martes" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-white focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Caja Transferencia / QR -->
             <div id="payment-details-box" class="bg-neutral-950 border border-cyan-500/30 rounded-2xl p-3.5 space-y-3 hidden">
                 <div class="flex justify-between items-center">
                     <span id="payment-box-title" class="text-cyan-400 font-black text-[11px] uppercase">Datos de Pago</span>
-                    <button type="button" onclick="openPaymentConfigModal()" class="text-[10px] text-cyan-300 underline font-bold">Configurar mis datos</button>
+                    <button type="button" onclick="openPaymentConfigModal()" class="text-[10px] text-cyan-300 underline font-bold">Configurar datos</button>
                 </div>
-                
                 <div id="payment-qr-container" class="text-center space-y-2 hidden">
-                    <div class="bg-white p-3 rounded-xl inline-block shadow-inner mx-auto">
+                    <div class="bg-white p-3 rounded-xl inline-block mx-auto">
                         <img id="render-qr-img" src="" alt="QR de Pago" class="w-32 h-32 object-contain mx-auto hidden">
                         <div id="render-qr-placeholder" class="w-32 h-32 bg-neutral-200 text-neutral-800 flex items-center justify-center text-[10px] font-bold p-2 text-center rounded">
-                            Sin QR configurado. Sube una imagen en configuración.
+                            Sin QR configurado.
                         </div>
                     </div>
-                    <p class="text-[10px] text-neutral-400">Escanee el código QR con la app del banco para completar la transferencia.</p>
                 </div>
-
                 <div id="payment-account-container" class="space-y-1.5 text-xs">
                     <div class="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800 flex justify-between items-center">
-                        <span class="text-neutral-400 font-medium">Banco / Entidad:</span>
+                        <span class="text-neutral-400">Entidad:</span>
                         <strong class="text-white" id="val-bank-name">Nequi / DaviPlata</strong>
                     </div>
                     <div class="bg-neutral-900 p-2.5 rounded-xl border border-neutral-800 flex justify-between items-center">
-                        <span class="text-neutral-400 font-medium">N° Cuenta / Llave:</span>
+                        <span class="text-neutral-400">N° Cuenta / Llave:</span>
                         <strong class="text-cyan-400 font-mono font-bold" id="val-bank-account">3100000000</strong>
                     </div>
                 </div>
@@ -477,92 +483,104 @@
 
             <div class="space-y-1.5">
                 <label class="block text-neutral-400 font-medium">Observaciones de Entrega</label>
-                <textarea id="evidence-notes" rows="2" placeholder="Local cerrado, sin stock..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none"></textarea>
-            </div>
-
-            <div class="space-y-1.5">
-                <label class="block text-neutral-400 font-medium">Evidencia Fotográfica (Fachada / Factura)</label>
-                <div class="flex items-center gap-2">
-                    <input type="file" id="evidence-photo-input" accept="image/*" class="hidden" onchange="previewEvidencePhoto(event)">
-                    <button type="button" onclick="document.getElementById('evidence-photo-input').click()" class="bg-neutral-800 hover:bg-neutral-700 text-cyan-400 font-bold px-3.5 py-2.5 rounded-xl border border-neutral-700 transition flex items-center gap-2">
-                        <i data-lucide="camera" class="w-4 h-4"></i> Adjuntar Foto
-                    </button>
-                    <span id="evidence-photo-name" class="text-neutral-400 truncate flex-1">Ninguna foto seleccionada</span>
-                </div>
+                <textarea id="evidence-notes" rows="2" placeholder="Observaciones..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none"></textarea>
             </div>
 
             <div class="space-y-1.5">
                 <div class="flex justify-between items-center">
                     <label class="block text-neutral-400 font-medium">Firma Digital del Cliente</label>
-                    <button type="button" onclick="clearSignatureCanvas()" class="text-rose-400 hover:text-rose-300 text-[10px] font-bold">Limpiar Firma</button>
+                    <button type="button" onclick="clearSignatureCanvas()" class="text-rose-400 text-[10px] font-bold">Limpiar</button>
                 </div>
                 <div class="bg-neutral-950 border border-neutral-800 rounded-2xl overflow-hidden touch-none">
-                    <canvas id="signature-canvas" width="340" height="110" class="w-full cursor-crosshair bg-neutral-950"></canvas>
+                    <canvas id="signature-canvas" width="340" height="100" class="w-full cursor-crosshair bg-neutral-950"></canvas>
                 </div>
             </div>
 
             <div class="flex gap-2.5 pt-2">
-                <button onclick="saveEvidence()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Guardar Entrega</button>
+                <button onclick="saveEvidence()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg transition">Confirmar Entrega</button>
                 <button onclick="document.getElementById('modal-evidence').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold transition">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resto de Modales Operativos -->
+    <div id="modal-sheets-config" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-black text-sm text-cyan-400">Control de Licencias (Google Sheets)</h3>
+            <input type="text" id="cfg-sheets-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <div class="flex gap-2.5 pt-2">
+                <button onclick="saveSheetsConfig()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Guardar</button>
+                <button onclick="document.getElementById('modal-sheets-config').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-offline-download" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-black text-sm text-white">Almacenamiento de Mapa Offline</h3>
+            <div class="bg-neutral-950 p-3.5 rounded-2xl border border-neutral-800 space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-neutral-400">Mosaicos guardados:</span>
+                    <strong id="offline-tiles-count" class="text-emerald-400">0 tiles</strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-neutral-400">Estado:</span>
+                    <strong id="offline-sync-status" class="text-cyan-400">Listo</strong>
+                </div>
+                <div id="download-progress-container" class="w-full bg-neutral-800 h-2 rounded-full overflow-hidden hidden">
+                    <div id="download-progress-bar" class="bg-emerald-500 h-full w-0 transition-all"></div>
+                </div>
+            </div>
+            <button onclick="startDownloadingRouteMapTiles()" class="w-full bg-emerald-500 text-neutral-950 font-black py-3 rounded-2xl">Descargar Zona Actual</button>
+            <button onclick="clearOfflineMapStorage()" class="w-full bg-neutral-800 text-rose-400 font-bold py-2.5 rounded-2xl">Limpiar Caché de Mapa</button>
+            <button onclick="document.getElementById('modal-offline-download').classList.add('hidden')" class="w-full text-neutral-400 font-bold pt-1">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="modal-driver" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-black text-sm text-cyan-400">Editar Perfil del Conductor</h3>
+            <input type="text" id="edit-driver-name" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <div class="flex gap-2.5">
+                <button onclick="saveDriverProfile()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Guardar</button>
+                <button onclick="document.getElementById('modal-driver').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-route-add-stop" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-black text-sm text-cyan-400">Añadir Cliente de Agenda a Ruta</h3>
+            <select id="select-agenda-client" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white font-bold"></select>
+            <input type="number" id="agenda-stop-value" placeholder="Valor factura de hoy ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <div class="flex gap-2.5">
+                <button onclick="confirmAddStopFromAgenda()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Añadir</button>
+                <button onclick="document.getElementById('modal-route-add-stop').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cancelar</button>
             </div>
         </div>
     </div>
 
     <div id="modal-payment-config" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
-            <h3 class="font-black text-sm text-cyan-400">Configurar QR y Cuenta Bancaria</h3>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-neutral-400 font-medium mb-1">Nombre del Banco / Entidad / Llave</label>
-                    <input type="text" id="cfg-bank-name" placeholder="Ej. Nequi / Bancolombia" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
-                </div>
-                <div>
-                    <label class="block text-neutral-400 font-medium mb-1">Número de Cuenta / Teléfono (Llave)</label>
-                    <input type="text" id="cfg-bank-account" placeholder="Ej. 310 123 4567" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500">
-                </div>
-                <div>
-                    <label class="block text-neutral-400 font-medium mb-1">Imagen de Código QR</label>
-                    <input type="file" id="cfg-qr-file-input" accept="image/*" class="hidden" onchange="previewConfigQR(event)">
-                    <button type="button" onclick="document.getElementById('cfg-qr-file-input').click()" class="w-full bg-neutral-800 hover:bg-neutral-700 text-cyan-400 font-bold py-3 rounded-xl border border-neutral-700 transition flex items-center justify-center gap-2">
-                        <i data-lucide="upload" class="w-4 h-4"></i> Subir Imagen QR
-                    </button>
-                    <div id="cfg-qr-preview-text" class="text-center text-[10px] text-neutral-400 mt-1">Ninguna imagen QR cargada</div>
-                </div>
-                <div class="flex gap-2.5 pt-2">
-                    <button onclick="savePaymentConfig()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Guardar Configuración</button>
-                    <button onclick="document.getElementById('modal-payment-config').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold transition">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-client" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
-            <h3 class="font-black text-sm text-cyan-400">Cliente & Control de Cartera</h3>
-            <div class="space-y-2.5">
-                <input type="text" id="client-name" placeholder="Tienda Don José" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <input type="text" id="client-address" placeholder="Calle 45 # 12-30" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <input type="text" id="client-phone" placeholder="3102345678" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="number" id="client-debt" placeholder="Deuda Pendiente ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                    <input type="number" id="client-limit" placeholder="Cupo Crédito ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                </div>
-                <textarea id="client-obs" rows="2" placeholder="Observaciones de crédito..." class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none"></textarea>
-                <div class="flex gap-2.5 pt-2">
-                    <button onclick="handleClientSubmitDirect()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Guardar</button>
-                    <button onclick="document.getElementById('modal-client').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold transition">Cancelar</button>
-                </div>
+            <h3 class="font-black text-sm text-cyan-400">Configurar QR y Cuenta</h3>
+            <input type="text" id="cfg-bank-name" placeholder="Banco / Nequi" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <input type="text" id="cfg-bank-account" placeholder="N° Cuenta / Llave" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <input type="file" id="cfg-qr-file-input" accept="image/*" class="hidden" onchange="previewConfigQR(event)">
+            <button type="button" onclick="document.getElementById('cfg-qr-file-input').click()" class="w-full bg-neutral-800 text-cyan-400 font-bold py-3 rounded-xl border border-neutral-700">Subir Imagen QR</button>
+            <div class="flex gap-2.5">
+                <button onclick="savePaymentConfig()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Guardar</button>
+                <button onclick="document.getElementById('modal-payment-config').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cerrar</button>
             </div>
         </div>
     </div>
 
     <div id="modal-route" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
-            <h3 class="font-black text-sm text-cyan-400">Crear Nueva Ruta TaT</h3>
-            <input type="text" id="new-route-name" placeholder="Ej. Ruta Norte Zona 2" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-            <div class="flex gap-2.5 pt-2">
-                <button onclick="createNewRoute()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Crear Ruta</button>
-                <button onclick="document.getElementById('modal-route').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold transition">Cancelar</button>
+            <h3 class="font-black text-sm text-cyan-400">Crear Nueva Ruta</h3>
+            <input type="text" id="new-route-name" placeholder="Ej. Ruta Sur Zona 1" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <div class="flex gap-2.5">
+                <button onclick="createNewRoute()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Crear</button>
+                <button onclick="document.getElementById('modal-route').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cancelar</button>
             </div>
         </div>
     </div>
@@ -571,12 +589,12 @@
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
             <h3 class="font-black text-sm text-cyan-400">Añadir Parada desde Mapa</h3>
             <div class="space-y-2.5">
-                <input type="text" id="parada-nombre" placeholder="Nombre del Negocio" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <input type="text" id="parada-direccion" placeholder="Dirección / Coordenadas" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
-                <input type="number" id="parada-valor" placeholder="Valor factura ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white focus:outline-none">
+                <input type="text" id="parada-nombre" placeholder="Nombre del Negocio" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+                <input type="text" id="parada-direccion" placeholder="Dirección / Coordenadas" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+                <input type="number" id="parada-valor" placeholder="Valor factura ($)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
                 <div class="flex gap-2.5 pt-2">
-                    <button onclick="guardarNuevaParada()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black shadow-lg shadow-cyan-500/20 transition">Guardar Parada</button>
-                    <button onclick="document.getElementById('modal-parada').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold transition">Cancelar</button>
+                    <button onclick="guardarNuevaParada()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black">Guardar Parada</button>
+                    <button onclick="document.getElementById('modal-parada').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold">Cancelar</button>
                 </div>
             </div>
         </div>
