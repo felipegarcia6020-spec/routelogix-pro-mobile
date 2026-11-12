@@ -1,4 +1,4 @@
-// RouteLogix Pro Enterprise v31 - Híbrido + Vista de Supervisor Integrada
+// RouteLogix Pro Enterprise v31 - Híbrido + Vista de Supervisor Integrada (Fixed Syntax)
 
 const APP_STORAGE_KEY = 'routelogix_v31_state';
 const SUPERVISOR_PIN = '1234';
@@ -23,14 +23,13 @@ let map = null;
 let currentTileLayer = null;
 let routePolyline = null;
 let stopMarkers = [];
-let userMarker = null;
-let watchId = null;
 let lastKnownCoords = [4.3365, -74.3638];
 let activePosCartItems = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     try {
         loadAppState();
+        registerServiceWorkerSafe();
         setupNetworkListeners();
         initIconsSafe();
         initCashDenominations();
@@ -41,9 +40,16 @@ document.addEventListener('DOMContentLoaded', () => {
             bootMainApplication();
         }
     } catch (err) {
+        console.error('Error arranque:', err);
         document.getElementById('auth-screen').classList.add('hidden');
     }
 });
+
+function registerServiceWorkerSafe() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+}
 
 function bootMainApplication() {
     setTimeout(() => {
@@ -64,7 +70,11 @@ function setupNetworkListeners() {
 
 function loadAppState() {
     const raw = localStorage.getItem(APP_STORAGE_KEY);
-    if (raw) appState = { ...appState, ...JSON.parse(raw) };
+    if (raw) {
+        try {
+            appState = { ...appState, ...JSON.parse(raw) };
+        } catch (e) {}
+    }
 }
 
 function saveAppState() {
@@ -86,7 +96,7 @@ function handleLoginSubmit() {
         const pin = document.getElementById('login-supervisor-pin').value.trim();
         if (pin !== SUPERVISOR_PIN) {
             const err = document.getElementById('login-error-msg');
-            err.textContent = '❌ PIN de supervisor incorrecto (Prueba con 1234)';
+            err.textContent = '❌ PIN de supervisor incorrecto (Usa 1234)';
             err.classList.remove('hidden');
             return;
         }
@@ -160,7 +170,10 @@ async function processOutboxQueue() {
 }
 
 async function cargarDatosSupervisorCloud() {
-    if (!appState.sheetsUrl) { alert('Configura primero la URL de Google Sheets.'); return; }
+    if (!appState.sheetsUrl) {
+        alert('Configura primero la URL de Google Sheets haciendo clic en el icono de nube arriba o en la pantalla de inicio.');
+        return;
+    }
     try {
         const res = await fetch(`${appState.sheetsUrl}?action=getSupervisorSummary`);
         const data = await res.json();
@@ -171,7 +184,7 @@ async function cargarDatosSupervisorCloud() {
             alert('✅ Datos actualizados desde Google Sheets.');
         }
     } catch (e) {
-        alert('Error al conectar con la API cloud.');
+        alert('Error al conectar con la API cloud. Verifica la URL del script.');
     }
 }
 
@@ -199,13 +212,25 @@ async function ejecutarCierreJornadaCloud() {
 }
 
 function exportarReporteSupervisorPDF() {
-    alert('📄 Generando reporte ejecutivo descargable para el supervisor...');
+    window.print();
 }
 
 function compartirInformeWhatsApp() {
-    const text = encodeURIComponent("📊 *Reporte RouteLogix Pro*
-Flota operativa sincronizada exitosamente.");
+    const paradas = document.getElementById('sup-total-paradas').textContent;
+    const ventas = document.getElementById('sup-total-ventas').textContent;
+    const cierres = document.getElementById('sup-total-cierres').textContent;
+    const text = encodeURIComponent(`📊 *Reporte RouteLogix Pro*\nParadas Cloud: ${paradas}\nVentas POS: ${ventas}\nCierres de Ruta: ${cierres}`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+
+function compartirRutaActiva() {
+    const route = getActiveRoute();
+    const payload = JSON.stringify({ routeExport: route, inventory: appState.inventory }, null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${route.name.toLowerCase().replace(/\s+/g, '-')}-routelogix.json`;
+    a.click();
 }
 
 // --- MAPA ---
@@ -291,7 +316,7 @@ function renderMapMarkersAndRoute() {
 
     const route = getActiveRoute();
     const coords = [];
-    route.stops.forEach((stop, index) => {
+    route.stops.forEach((stop) => {
         coords.push([stop.lat, stop.lng]);
         const color = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
         const marker = L.circleMarker([stop.lat, stop.lng], { radius: 10, fillColor: color, color: '#09090b', weight: 2, fillOpacity: 0.95 }).addTo(map);
@@ -351,25 +376,54 @@ function renderPosCartRows() {
     container.innerHTML = activePosCartItems.map((item, idx) => {
         const subtotal = item.qty * item.price;
         total += subtotal;
-        return `<div class="flex items-center gap-2 bg-neutral-900 p-2 rounded-xl text-xs"><span>${item.qty} un.</span><strong class="text-emerald-400">$${subtotal}</strong></div>`;
+        return `<div class="flex items-center justify-between bg-neutral-900 p-2 rounded-xl text-xs">
+            <select onchange="updatePosRowProd(${idx}, this.value)" class="bg-neutral-950 text-white p-1 rounded border border-neutral-700">
+                ${appState.inventory.map(p => `<option value="${p.id}" ${p.id === item.productId ? 'selected' : ''}>${p.name} ($${p.price})</option>`).join('')}
+            </select>
+            <input type="number" min="1" value="${item.qty}" onchange="updatePosRowQty(${idx}, this.value)" class="w-12 bg-neutral-950 text-white text-center p-1 rounded border border-neutral-700">
+            <strong class="text-emerald-400">$${subtotal}</strong>
+        </div>`;
     }).join('');
     document.getElementById('pos-cart-total-display').textContent = `$${total}`;
+}
+
+function updatePosRowProd(idx, id) {
+    const p = appState.inventory.find(x => x.id === id);
+    if (p) { activePosCartItems[idx].productId = p.id; activePosCartItems[idx].price = p.price; renderPosCartRows(); }
+}
+function updatePosRowQty(idx, q) {
+    activePosCartItems[idx].qty = Math.max(1, parseInt(q) || 1);
+    renderPosCartRows();
 }
 
 function saveEvidence() {
     const stopId = document.getElementById('evidence-stop-id').value;
     const status = document.getElementById('evidence-status').value;
     const method = document.getElementById('evidence-payment-method').value;
+    const notes = document.getElementById('evidence-notes').value.trim();
     const route = getActiveRoute();
     const stop = route.stops.find(s => s.id === stopId);
     if (!stop) return;
 
+    let totalSale = 0;
+    if (status === 'delivered') {
+        activePosCartItems.forEach(i => {
+            totalSale += i.qty * i.price;
+            const prod = appState.inventory.find(p => p.id === i.productId);
+            if (prod) prod.stock = Math.max(0, prod.stock - i.qty);
+        });
+    }
+
     stop.status = status;
     stop.paymentMethod = method;
-    stop.value = status === 'delivered' ? 15000 : 0;
+    stop.notes = notes;
+    stop.value = totalSale;
 
     saveAppState();
     queueOutboxSync('SYNC_PARADA', stop);
+    if (status === 'delivered' && totalSale > 0) {
+        queueOutboxSync('REGISTRAR_VENTA_POS', stop);
+    }
     document.getElementById('modal-evidence').classList.add('hidden');
     renderAllViews();
 }
@@ -387,10 +441,18 @@ function renderRoutesView() {
     const route = getActiveRoute();
     document.getElementById('route-active-title').textContent = route.name;
     document.getElementById('metric-clients').textContent = route.stops.length;
+    let totalMoney = 0;
+    route.stops.forEach(s => totalMoney += (s.value || 0));
+    document.getElementById('metric-money').textContent = `$${totalMoney.toLocaleString()}`;
+
     const container = document.getElementById('routes-list-container');
-    container.innerHTML = route.stops.map((s, idx) => `
+    container.innerHTML = route.stops.map((s) => `
         <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex items-center justify-between">
-            <div><strong class="text-white text-xs">${s.name}</strong><div class="text-[11px] text-neutral-400">${s.address}</div></div>
+            <div>
+                <strong class="text-white text-xs">${s.name}</strong>
+                <div class="text-[11px] text-neutral-400">${s.address}</div>
+                <div class="text-xs font-bold text-emerald-400">$${(s.value || 0).toLocaleString()}</div>
+            </div>
             <button onclick="openEvidenceModal('${s.id}')" class="bg-cyan-500 text-neutral-950 font-black px-3 py-2 rounded-xl text-xs">POS</button>
         </div>`).join('');
 }
@@ -400,7 +462,7 @@ function renderAgendaView() {
 }
 
 function renderInventoryPOSView() {
-    document.getElementById('lista-inventario-pos').innerHTML = appState.inventory.map(p => `<div class="bg-neutral-900 p-3 rounded-xl text-xs text-white">${p.name} ($${p.price}) - Stock: ${p.stock}</div>`).join('');
+    document.getElementById('lista-inventario-pos').innerHTML = appState.inventory.map(p => `<div class="bg-neutral-900 p-3 rounded-xl text-xs text-white flex justify-between"><span>${p.name} ($${p.price})</span><strong class="text-cyan-400">Stock: ${p.stock}</strong></div>`).join('');
 }
 
 const DENOMINATIONS = [50000, 20000, 10000, 5000, 2000, 1000];
@@ -409,25 +471,55 @@ function initCashDenominations() {
     if (!c) return;
     c.innerHTML = DENOMINATIONS.map(d => `<div class="flex justify-between text-xs"><span>$${d}</span><input type="number" min="0" value="0" onchange="renderFinancesView()" class="w-16 bg-neutral-900 text-white text-right p-1 rounded"></div>`).join('');
 }
+function resetCashCounter() { initCashDenominations(); renderFinancesView(); }
+function addExpense() {
+    const concept = document.getElementById('expense-concept').value.trim();
+    const amount = parseFloat(document.getElementById('expense-amount').value) || 0;
+    if (!concept || amount <= 0) return;
+    appState.expenses.push({ concept, amount });
+    saveAppState();
+    renderFinancesView();
+}
 function renderFinancesView() {
-    let cash = 0, transfer = 0;
+    let cash = 0, transfer = 0, credit = 0;
     getActiveRoute().stops.forEach(s => {
         if (s.status === 'delivered') {
-            if (s.paymentMethod === 'cash') cash += s.value;
-            else transfer += s.value;
+            if (s.paymentMethod === 'cash') cash += (s.value || 0);
+            else if (s.paymentMethod === 'transfer' || s.paymentMethod === 'qr') transfer += (s.value || 0);
+            else if (s.paymentMethod === 'credit') credit += (s.value || 0);
         }
     });
-    document.getElementById('summary-facturado').textContent = `$${cash}`;
-    document.getElementById('summary-transfer').textContent = `$${transfer}`;
+    document.getElementById('summary-facturado').textContent = `$${cash.toLocaleString()}`;
+    document.getElementById('summary-transfer').textContent = `$${transfer.toLocaleString()}`;
+    document.getElementById('summary-credit').textContent = `$${credit.toLocaleString()}`;
 }
 
-function openSheetsConfigModal() { document.getElementById('cfg-sheets-url').value = appState.sheetsUrl || ''; document.getElementById('modal-sheets-config').classList.remove('hidden'); }
-function saveSheetsConfig() { appState.sheetsUrl = document.getElementById('cfg-sheets-url').value.trim(); saveAppState(); document.getElementById('modal-sheets-config').classList.add('hidden'); }
+function openSheetsConfigModal() {
+    document.getElementById('cfg-sheets-url').value = appState.sheetsUrl || '';
+    document.getElementById('modal-sheets-config').classList.remove('hidden');
+}
+function saveSheetsConfig() {
+    appState.sheetsUrl = document.getElementById('cfg-sheets-url').value.trim();
+    saveAppState();
+    document.getElementById('modal-sheets-config').classList.add('hidden');
+    alert('✅ URL de Google Sheets guardada correctamente.');
+}
+function openDriverEditModal() {
+    document.getElementById('edit-driver-name').value = appState.driver.name;
+    document.getElementById('modal-driver').classList.remove('hidden');
+}
+function saveDriverProfile() {
+    const n = document.getElementById('edit-driver-name').value.trim();
+    if (n) { appState.driver.name = n; saveAppState(); updateDriverHeaderUI(); }
+    document.getElementById('modal-driver').classList.add('hidden');
+}
 function openCreateRouteModal() { document.getElementById('modal-route').classList.remove('hidden'); }
 function createNewRoute() {
     const name = document.getElementById('new-route-name').value.trim();
     if (!name) return;
-    appState.routes.push({ id: 'route-' + Date.now(), name, stops: [] });
+    const id = 'route-' + Date.now();
+    appState.routes.push({ id, name, stops: [] });
+    appState.activeRouteId = id;
     saveAppState();
     document.getElementById('modal-route').classList.add('hidden');
     renderAllViews();

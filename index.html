@@ -53,7 +53,7 @@
             </div>
             
             <div class="pt-2 border-t border-neutral-800 text-center">
-                <button onclick="openSheetsConfigModal()" class="text-[11px] text-neutral-400 hover:text-cyan-400 underline font-bold">⚙️ Configurar Enlace Google Sheets (Cloud API)</button>
+                <button type="button" onclick="openSheetsConfigModal()" class="text-[11px] text-neutral-400 hover:text-cyan-400 underline font-bold">⚙️ Configurar Enlace Google Sheets (Cloud API)</button>
             </div>
         </div>
     </div>
@@ -76,6 +76,9 @@
             </div>
         </div>
         <div class="flex items-center space-x-1.5">
+            <button onclick="openSheetsConfigModal()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-cyan-400 rounded-xl text-xs flex items-center border border-neutral-700 transition" title="Configurar Cloud">
+                <i data-lucide="cloud" class="w-4 h-4"></i>
+            </button>
             <button onclick="compartirRutaActiva()" class="p-2 bg-neutral-800 hover:bg-neutral-700 text-emerald-400 rounded-xl text-xs flex items-center border border-neutral-700 transition" title="Compartir Ruta">
                 <i data-lucide="share-2" class="w-4 h-4"></i>
             </button>
@@ -411,8 +414,8 @@
             <h3 class="font-black text-sm text-cyan-400">Enlace Google Sheets (Cloud API)</h3>
             <input type="text" id="cfg-sheets-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
             <div class="flex gap-2.5 pt-2">
-                <button onclick="saveSheetsConfig()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Guardar</button>
-                <button onclick="document.getElementById('modal-sheets-config').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cerrar</button>
+                <button type="button" onclick="saveSheetsConfig()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Guardar</button>
+                <button type="button" onclick="document.getElementById('modal-sheets-config').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cerrar</button>
             </div>
         </div>
     </div>
@@ -450,6 +453,17 @@
             <div class="flex gap-2.5 pt-2">
                 <button onclick="guardarNuevaParada()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black">Guardar</button>
                 <button onclick="document.getElementById('modal-parada').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-driver" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl text-xs">
+            <h3 class="font-black text-sm text-cyan-400">Editar Perfil del Operador</h3>
+            <input type="text" id="edit-driver-name" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <div class="flex gap-2.5">
+                <button onclick="saveDriverProfile()" class="flex-1 bg-cyan-500 text-neutral-950 py-3 rounded-xl font-black">Guardar</button>
+                <button onclick="document.getElementById('modal-driver').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3 rounded-xl font-bold">Cancelar</button>
             </div>
         </div>
     </div>
