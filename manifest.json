@@ -1,9 +1,1 @@
-{
-  "name": "RouteLogix Pro Enterprise v31",
-  "short_name": "RouteLogix",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#030712",
-  "theme_color": "#030712",
-  "icons": []
-}
+{"name": "RouteLogix Pro", "short_name": "RouteLogix"}
