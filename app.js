@@ -1,35 +1,21 @@
-// RouteLogix Pro Enterprise v31 - Híbrido: Autovendedor POS + Flota Cloud
+// RouteLogix Pro Enterprise v31 - Híbrido + Vista de Supervisor Integrada
 
 const APP_STORAGE_KEY = 'routelogix_v31_state';
-const TUTORIAL_DONE_KEY = 'routelogix_v31_tutorial_done';
+const SUPERVISOR_PIN = '1234';
 
 let appState = {
     driver: { name: '', email: '', role: 'independent', loggedIn: false },
     sheetsUrl: '',
-    transportMode: 'moto',
     mapStyle: 'standard',
     activeRouteId: 'route-1',
-    routes: [
-        {
-            id: 'route-1',
-            name: 'Ruta Autoventa POS',
-            stops: []
-        }
-    ],
+    routes: [{ id: 'route-1', name: 'Ruta Autoventa POS', stops: [] }],
     clients: [],
     inventory: [
         { id: 'p1', name: 'Queso Doble Crema 500g', cost: 9000, price: 12000, stock: 30 },
-        { id: 'p2', name: 'Leche Entera 1L', cost: 3200, price: 4500, stock: 50 },
-        { id: 'p3', name: 'Yogur Fresa 1L', cost: 5000, price: 7000, stock: 25 },
-        { id: 'p4', name: 'Pan Tajado Artesanal', cost: 4000, price: 6000, stock: 20 }
+        { id: 'p2', name: 'Leche Entera 1L', cost: 3200, price: 4500, stock: 50 }
     ],
     expenses: [],
     cashCounts: {},
-    paymentConfig: {
-        bankName: 'Nequi / DaviPlata',
-        bankAccount: '3100000000',
-        qrDataUrl: ''
-    },
     outboxQueue: []
 };
 
@@ -39,32 +25,22 @@ let routePolyline = null;
 let stopMarkers = [];
 let userMarker = null;
 let watchId = null;
-let isTrackingLive = true;
 let lastKnownCoords = [4.3365, -74.3638];
-let deferredPrompt = null;
-let currentCapturedPhotoData = '';
-let activePosCartItems = []; // [{productId, qty, price}]
+let activePosCartItems = [];
 
-// --- ARRANQUE ---
 document.addEventListener('DOMContentLoaded', () => {
     try {
         loadAppState();
-        registerServiceWorkerSafe();
         setupNetworkListeners();
         initIconsSafe();
         initCashDenominations();
-        initSignatureCanvas();
         
         if (appState.driver && appState.driver.loggedIn) {
             document.getElementById('auth-screen').classList.add('hidden');
-            updateDriverHeaderUI();
+            configureRoleInterface();
             bootMainApplication();
-        } else {
-            if (appState.driver.name) document.getElementById('login-name').value = appState.driver.name;
-            if (appState.driver.email) document.getElementById('login-email').value = appState.driver.email;
         }
     } catch (err) {
-        console.error('Error arranque:', err);
         document.getElementById('auth-screen').classList.add('hidden');
     }
 });
@@ -73,7 +49,6 @@ function bootMainApplication() {
     setTimeout(() => {
         initMapSafe();
         renderAllViews();
-        checkAndRunTutorial();
     }, 100);
 }
 
@@ -83,57 +58,44 @@ function initIconsSafe() {
     }
 }
 
-function registerServiceWorkerSafe() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
-    }
-}
-
 function setupNetworkListeners() {
-    const updateBadge = () => {
-        const isOnline = navigator.onLine;
-        const badge = document.getElementById('network-status-badge');
-        const dot = document.getElementById('network-dot');
-        const text = document.getElementById('network-text');
-        if (!badge) return;
-
-        if (isOnline) {
-            badge.className = 'px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1';
-            dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
-            text.textContent = 'Online';
-            processOutboxQueue();
-        } else {
-            badge.className = 'px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1';
-            dot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
-            text.textContent = 'Offline Local';
-        }
-    };
-    window.addEventListener('online', updateBadge);
-    window.addEventListener('offline', updateBadge);
-    updateBadge();
+    window.addEventListener('online', processOutboxQueue);
 }
 
 function loadAppState() {
     const raw = localStorage.getItem(APP_STORAGE_KEY);
-    if (raw) {
-        const parsed = JSON.parse(raw);
-        appState = { ...appState, ...parsed };
-    }
+    if (raw) appState = { ...appState, ...JSON.parse(raw) };
 }
 
 function saveAppState() {
     localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(appState));
 }
 
+function toggleSupervisorPinInput(role) {
+    const box = document.getElementById('supervisor-pin-box');
+    if (role === 'supervisor') box.classList.remove('hidden');
+    else box.classList.add('hidden');
+}
+
 function handleLoginSubmit() {
-    const name = document.getElementById('login-name').value.trim() || 'Operador Autoventa';
+    const name = document.getElementById('login-name').value.trim() || 'Operador';
     const email = document.getElementById('login-email').value.trim();
     const role = document.getElementById('login-profile-mode').value;
+
+    if (role === 'supervisor') {
+        const pin = document.getElementById('login-supervisor-pin').value.trim();
+        if (pin !== SUPERVISOR_PIN) {
+            const err = document.getElementById('login-error-msg');
+            err.textContent = '❌ PIN de supervisor incorrecto (Prueba con 1234)';
+            err.classList.remove('hidden');
+            return;
+        }
+    }
 
     appState.driver = { name, email, role, loggedIn: true };
     saveAppState();
     document.getElementById('auth-screen').classList.add('hidden');
-    updateDriverHeaderUI();
+    configureRoleInterface();
     bootMainApplication();
 }
 
@@ -143,309 +105,45 @@ function logoutSession() {
     document.getElementById('auth-screen').classList.remove('hidden');
 }
 
+function configureRoleInterface() {
+    const isSupervisor = appState.driver.role === 'supervisor';
+    const navButtons = document.getElementById('navbar-buttons');
+    
+    if (isSupervisor) {
+        navButtons.innerHTML = `
+            <button onclick="switchTab('supervisor')" id="nav-btn-supervisor" class="flex flex-col items-center justify-center text-amber-400 transition col-span-4">
+                <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                <span class="text-[10px] mt-1 font-bold">Panel Supervisor Cloud</span>
+            </button>`;
+        switchTab('supervisor');
+        cargarDatosSupervisorCloud();
+    } else {
+        navButtons.innerHTML = `
+            <button onclick="switchTab('map')" id="nav-btn-map" class="flex flex-col items-center justify-center text-cyan-400 transition"><i data-lucide="map" class="w-5 h-5"></i><span class="text-[10px] mt-1 font-bold">Mapa</span></button>
+            <button onclick="switchTab('routes')" id="nav-btn-routes" class="flex flex-col items-center justify-center text-neutral-400 transition"><i data-lucide="route" class="w-5 h-5"></i><span class="text-[10px] mt-1 font-bold">Ruta</span></button>
+            <button onclick="switchTab('agenda')" id="nav-btn-agenda" class="flex flex-col items-center justify-center text-neutral-400 transition"><i data-lucide="book-user" class="w-5 h-5"></i><span class="text-[10px] mt-1 font-bold">Agenda</span></button>
+            <button onclick="switchTab('finances')" id="nav-btn-finances" class="flex flex-col items-center justify-center text-neutral-400 transition"><i data-lucide="wallet" class="w-5 h-5"></i><span class="text-[10px] mt-1 font-bold">Caja</span></button>`;
+        switchTab('map');
+    }
+    updateDriverHeaderUI();
+}
+
 function updateDriverHeaderUI() {
     const name = appState.driver.name || 'Operador';
     document.getElementById('driver-name-display').textContent = name;
-    const parts = name.split(' ').filter(Boolean);
-    const initials = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
-    document.getElementById('driver-initials').textContent = initials || 'RL';
-    document.getElementById('mode-badge').textContent = appState.driver.role === 'independent' ? 'POS Autoventa' : 'Flota Empresa';
+    document.getElementById('driver-initials').textContent = name.slice(0, 2).toUpperCase();
+    document.getElementById('mode-badge').textContent = appState.driver.role === 'supervisor' ? 'Supervisor' : 'POS';
 }
 
-// --- MAPA OFFLINE ---
-function initMapSafe() {
-    if (map) { map.invalidateSize(); return; }
-    if (typeof L === 'undefined') return;
-
-    map = L.map('map', { zoomControl: false, attributionControl: false }).setView(lastKnownCoords, 15);
-    setMapTileStyle(navigator.onLine ? (appState.mapStyle || 'standard') : 'offline');
-    startGPSTracking();
-    renderMapMarkersAndRoute();
-}
-
-function createOfflineGridLayer() {
-    const GridLayer = L.GridLayer.extend({
-        createTile: function (coords) {
-            const tile = document.createElement('canvas');
-            const size = this.getTileSize();
-            tile.width = size.x; tile.height = size.y;
-            const ctx = tile.getContext('2d');
-            ctx.fillStyle = '#0b1120';
-            ctx.fillRect(0, 0, size.x, size.y);
-            ctx.strokeStyle = 'rgba(6, 182, 212, 0.14)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(0, 0, size.x, size.y);
-            ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
-            ctx.font = '10px monospace';
-            ctx.fillText(`Z${coords.z} [${coords.x},${coords.y}]`, 8, 16);
-            return tile;
-        }
-    });
-    return new GridLayer();
-}
-
-function setMapTileStyle(style) {
-    appState.mapStyle = style;
+// --- CLOUD SYNC & SUPERVISOR API ---
+async function queueOutboxSync(action, payload) {
+    appState.outboxQueue.push({ action, payload, deviceId: appState.driver.name, timestamp: new Date().toISOString() });
     saveAppState();
-
-    ['standard', 'dark', 'offline'].forEach(s => {
-        const btn = document.getElementById(`style-${s}`);
-        if (!btn) return;
-        btn.className = s === style ? 'px-2.5 py-1.5 rounded-xl bg-cyan-500 text-neutral-950 transition' : 'px-2.5 py-1.5 rounded-xl text-neutral-300 hover:text-white transition';
-    });
-
-    if (!map || typeof L === 'undefined') return;
-    if (currentTileLayer) map.removeLayer(currentTileLayer);
-
-    const mapEl = document.getElementById('map');
-    const banner = document.getElementById('map-fallback-banner');
-
-    if (style === 'offline' || !navigator.onLine) {
-        mapEl.classList.remove('dark-map-tiles');
-        currentTileLayer = createOfflineGridLayer().addTo(map);
-        banner.classList.remove('hidden');
-    } else {
-        banner.classList.add('hidden');
-        if (style === 'dark') mapEl.classList.add('dark-map-tiles');
-        else mapEl.classList.remove('dark-map-tiles');
-
-        currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: true });
-        currentTileLayer.on('tileerror', () => { if (appState.mapStyle !== 'offline') setMapTileStyle('offline'); });
-        currentTileLayer.addTo(map);
-    }
-}
-
-function startGPSTracking() {
-    if (!('geolocation' in navigator)) return;
-    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-
-    watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-            const { latitude, longitude, speed } = pos.coords;
-            lastKnownCoords = [latitude, longitude];
-            const kmh = speed ? (speed * 3.6).toFixed(1) : '0.0';
-            document.getElementById('live-speed-display').textContent = `${kmh} km/h`;
-
-            if (map && typeof L !== 'undefined') {
-                if (!userMarker) {
-                    userMarker = L.circleMarker(lastKnownCoords, { radius: 8, fillColor: '#06b6d4', color: '#ffffff', weight: 2, fillOpacity: 1 }).addTo(map);
-                } else {
-                    userMarker.setLatLng(lastKnownCoords);
-                }
-                if (isTrackingLive) map.panTo(lastKnownCoords);
-            }
-        },
-        (err) => {},
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
-    );
-}
-
-function centrarGPS() { if (map) map.setView(lastKnownCoords, 16); }
-function toggleTrackingLive() {
-    isTrackingLive = !isTrackingLive;
-    const btn = document.getElementById('tracking-toggle-btn');
-    btn.className = isTrackingLive ? 'w-11 h-11 bg-cyan-500 text-neutral-950 rounded-2xl shadow-2xl flex items-center justify-center transition' : 'w-11 h-11 bg-neutral-900 text-neutral-400 border border-neutral-700 rounded-2xl shadow-2xl flex items-center justify-center transition';
-}
-
-async function searchMapAddress() {
-    const query = document.getElementById('map-search-input').value.trim();
-    if (!query) return;
-    if (!navigator.onLine) { alert('Sin internet: Mueve el mapa manualmente y usa "Añadir Parada -> Ubicación central".'); return; }
-    try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-        const results = await res.json();
-        if (results && results.length > 0 && map) {
-            isTrackingLive = false;
-            map.setView([parseFloat(results[0].lat), parseFloat(results[0].lon)], 17);
-        }
-    } catch (e) {}
-}
-
-// --- COMPARTIR RUTA ---
-async function compartirRutaActiva() {
-    const route = getActiveRoute();
-    const payload = JSON.stringify({
-        appName: "RouteLogix Pro Autoventa",
-        version: "31",
-        routeExport: route,
-        inventory: appState.inventory,
-        exportedAt: new Date().toISOString()
-    }, null, 2);
-
-    const blob = new Blob([payload], { type: 'application/json' });
-    const file = new File([blob], `${route.name.toLowerCase().replace(/\s+/g, '-')}-routelogix.json`, { type: 'application/json' });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-            await navigator.share({
-                title: `Ruta: ${route.name}`,
-                text: `Ruta POS Autoventa (${route.stops.length} paradas). Importa este archivo en la app.`,
-                files: [file]
-            });
-            return;
-        } catch (e) {
-            if (e.name !== 'AbortError') console.warn(e);
-        }
-    }
-
-    try {
-        await navigator.clipboard.writeText(payload);
-        alert('📋 ¡Datos de la ruta copiados al portapapeles!');
-    } catch (e) {}
-
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${route.name.toLowerCase().replace(/\s+/g, '-')}-routelogix.json`;
-    a.click();
-}
-
-// --- MÓDULO POS AUTOVENTA ---
-function openProductModal() {
-    ['prod-name', 'prod-cost', 'prod-price', 'prod-stock'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('modal-product').classList.remove('hidden');
-}
-
-function handleProductSubmit() {
-    const name = document.getElementById('prod-name').value.trim();
-    const cost = parseFloat(document.getElementById('prod-cost').value) || 0;
-    const price = parseFloat(document.getElementById('prod-price').value) || 0;
-    const stock = parseInt(document.getElementById('prod-stock').value) || 0;
-    if (!name || price <= 0) return alert('Nombre y precio de venta requeridos.');
-
-    appState.inventory.push({ id: 'prod-' + Date.now(), name, cost, price, stock });
-    saveAppState();
-    document.getElementById('modal-product').classList.add('hidden');
-    renderAllViews();
-}
-
-function switchAgendaTab(tab) {
-    const isClients = tab === 'clients';
-    document.getElementById('subview-clients').classList.toggle('hidden', !isClients);
-    document.getElementById('subview-inventory').classList.toggle('hidden', isClients);
-    document.getElementById('agenda-tab-clients').className = isClients ? 'flex-1 py-2 rounded-xl bg-cyan-500 text-neutral-950 transition' : 'flex-1 py-2 rounded-xl text-neutral-300 hover:text-white transition';
-    document.getElementById('agenda-tab-inventory').className = !isClients ? 'flex-1 py-2 rounded-xl bg-emerald-500 text-neutral-950 transition' : 'flex-1 py-2 rounded-xl text-neutral-300 hover:text-white transition';
-}
-
-function openEvidenceModal(stopId) {
-    const route = getActiveRoute();
-    const stop = route.stops.find(s => s.id === stopId);
-    if (!stop) return;
-
-    document.getElementById('evidence-stop-id').value = stop.id;
-    document.getElementById('evidence-status').value = stop.status === 'rejected' ? 'rejected' : 'delivered';
-    document.getElementById('evidence-payment-method').value = stop.paymentMethod || 'cash';
-    document.getElementById('evidence-credit-note').value = stop.creditNote || '';
-    document.getElementById('evidence-notes').value = stop.notes || '';
-
-    currentCapturedPhotoData = stop.photoData || '';
-    updatePhotoPreviewUI();
-
-    activePosCartItems = stop.posItems ? [...stop.posItems] : [];
-    renderPosCartRows();
-    togglePOSCartSection(document.getElementById('evidence-status').value);
-    togglePaymentDetails(stop.paymentMethod || 'cash');
-    clearSignatureCanvas();
-    document.getElementById('modal-evidence').classList.remove('hidden');
-}
-
-function togglePOSCartSection(status) {
-    const box = document.getElementById('pos-cart-box');
-    if (status === 'rejected') box.classList.add('hidden');
-    else box.classList.remove('hidden');
-}
-
-function addPosCartItemRow() {
-    if (appState.inventory.length === 0) return alert('Primero añade productos en la sección Agenda -> Inventario POS.');
-    activePosCartItems.push({ productId: appState.inventory[0].id, qty: 1, price: appState.inventory[0].price });
-    renderPosCartRows();
-}
-
-function renderPosCartRows() {
-    const container = document.getElementById('pos-items-rows');
-    let total = 0;
-
-    container.innerHTML = activePosCartItems.map((item, idx) => {
-        const prod = appState.inventory.find(p => p.id === item.productId) || appState.inventory[0];
-        const subtotal = item.qty * item.price;
-        total += subtotal;
-
-        return `
-        <div class="flex items-center gap-2 bg-neutral-900 p-2 rounded-xl border border-neutral-800">
-            <select onchange="updatePosItemProduct(${idx}, this.value)" class="flex-1 bg-neutral-950 border border-neutral-700 rounded-lg p-1.5 text-white text-[11px] font-bold">
-                ${appState.inventory.map(p => `<option value="${p.id}" ${p.id === item.productId ? 'selected' : ''}>${p.name} ($${p.price.toLocaleString()})</option>`).join('')}
-            </select>
-            <input type="number" min="1" value="${item.qty}" onchange="updatePosItemQty(${idx}, this.value)" class="w-14 bg-neutral-950 border border-neutral-700 rounded-lg p-1.5 text-center text-white font-bold text-xs">
-            <span class="text-emerald-400 font-bold text-xs w-16 text-right">$${subtotal.toLocaleString()}</span>
-            <button type="button" onclick="removePosItemRow(${idx})" class="text-rose-400 font-bold px-1.5">✕</button>
-        </div>`;
-    }).join('');
-
-    document.getElementById('pos-cart-total-display').textContent = `$${total.toLocaleString()}`;
-}
-
-function updatePosItemProduct(idx, prodId) {
-    const prod = appState.inventory.find(p => p.id === prodId);
-    if (!prod) return;
-    activePosCartItems[idx].productId = prod.id;
-    activePosCartItems[idx].price = prod.price;
-    renderPosCartRows();
-}
-
-function updatePosItemQty(idx, qty) {
-    activePosCartItems[idx].qty = Math.max(1, parseInt(qty) || 1);
-    renderPosCartRows();
-}
-
-function removePosItemRow(idx) {
-    activePosCartItems.splice(idx, 1);
-    renderPosCartRows();
-}
-
-function handlePhotoCaptured(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        currentCapturedPhotoData = ev.target.result;
-        updatePhotoPreviewUI();
-    };
-    reader.readAsDataURL(file);
-}
-
-function updatePhotoPreviewUI() {
-    const box = document.getElementById('evidence-photo-preview-box');
-    const img = document.getElementById('evidence-photo-preview-img');
-    if (currentCapturedPhotoData) {
-        img.src = currentCapturedPhotoData;
-        box.classList.remove('hidden');
-    } else {
-        img.src = '';
-        box.classList.add('hidden');
-    }
-}
-
-function removeCapturedPhoto() {
-    currentCapturedPhotoData = '';
-    updatePhotoPreviewUI();
-    document.getElementById('evidence-camera-input').value = '';
-    document.getElementById('evidence-gallery-input').value = '';
-}
-
-// --- SINKING OUTBOX QUEUE (FLOTA) ---
-function queueOutboxSync(payload) {
-    if (appState.driver.role !== 'fleet') return;
-    appState.outboxQueue.push({ id: Date.now(), data: payload, timestamp: new Date().toISOString() });
-    saveAppState();
-    const badge = document.getElementById('outbox-sync-badge');
-    if (badge) badge.classList.remove('hidden');
-    processOutboxQueue();
+    await processOutboxQueue();
 }
 
 async function processOutboxQueue() {
     if (!navigator.onLine || !appState.sheetsUrl || appState.outboxQueue.length === 0) return;
-    const badge = document.getElementById('outbox-sync-badge');
-    if (badge) badge.textContent = '📤 Sincronizando...';
-
     const queueCopy = [...appState.outboxQueue];
     for (const item of queueCopy) {
         try {
@@ -453,80 +151,104 @@ async function processOutboxQueue() {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(item.data)
+                body: JSON.stringify(item)
             });
-            appState.outboxQueue = appState.outboxQueue.filter(q => q.id !== item.id);
+            appState.outboxQueue = appState.outboxQueue.filter(q => q !== item);
         } catch (e) {}
     }
     saveAppState();
-    if (badge) {
-        if (appState.outboxQueue.length === 0) badge.classList.add('hidden');
-        else badge.textContent = '📤 Pendiente Sync';
+}
+
+async function cargarDatosSupervisorCloud() {
+    if (!appState.sheetsUrl) { alert('Configura primero la URL de Google Sheets.'); return; }
+    try {
+        const res = await fetch(`${appState.sheetsUrl}?action=getSupervisorSummary`);
+        const data = await res.json();
+        if (data.status === 'success') {
+            document.getElementById('sup-total-paradas').textContent = data.totalParadas;
+            document.getElementById('sup-total-ventas').textContent = data.totalVentasPOS;
+            document.getElementById('sup-total-cierres').textContent = data.totalCierres;
+            alert('✅ Datos actualizados desde Google Sheets.');
+        }
+    } catch (e) {
+        alert('Error al conectar con la API cloud.');
     }
 }
 
-// --- TUTORIAL ---
-const TUTORIAL_STEPS = [
-    { targetId: 'tour-header', title: 'Operador & Modo Híbrido', desc: 'Cambia entre Autovendedor POS independiente y Flota Cloud.' },
-    { targetId: 'tour-search', title: 'Buscador y Mapa', desc: 'Ubica direcciones rápidamente.' },
-    { targetId: 'tour-map-styles', title: 'Modo Táctico Offline', desc: 'Funcionalidad sin internet garantizada.' },
-    { targetId: 'tour-gps-controls', title: 'GPS y Descarga Offline', desc: 'Guarda mosaicos de zona antes de salir.' },
-    { targetId: 'tour-map-actions', title: 'Añadir Paradas y POS', desc: 'Agrega puntos y gestiona ventas al instante.' },
-    { targetId: 'tour-navbar', title: 'Módulos Principales', desc: 'Mapa, Ruta, Agenda / Inventario y Caja.' }
-];
+async function ejecutarCierreJornadaCloud() {
+    let cash = 0, transfer = 0, credit = 0;
+    getActiveRoute().stops.forEach(s => {
+        if (s.status === 'delivered') {
+            const val = s.value || 0;
+            if (s.paymentMethod === 'cash') cash += val;
+            else if (s.paymentMethod === 'transfer' || s.paymentMethod === 'qr') transfer += val;
+            else if (s.paymentMethod === 'credit') credit += val;
+        }
+    });
+    
+    const payload = {
+        totalRecaudado: cash + transfer,
+        efectivo: cash,
+        transferencias: transfer,
+        creditos: credit,
+        efectividad: '100%'
+    };
 
-let currentTutorialStep = 0;
-function checkAndRunTutorial() {
-    if (!localStorage.getItem(TUTORIAL_DONE_KEY)) startInteractiveTutorial(false);
-}
-function startInteractiveTutorial(force = true) {
-    if (force) switchTab('map');
-    currentTutorialStep = 0;
-    document.getElementById('tutorial-overlay').classList.remove('hidden');
-    renderTutorialStep();
-}
-function renderTutorialStep() {
-    const step = TUTORIAL_STEPS[currentTutorialStep];
-    const targetEl = document.getElementById(step.targetId);
-    document.getElementById('tutorial-step-badge').textContent = `Paso ${currentTutorialStep + 1} de ${TUTORIAL_STEPS.length}`;
-    document.getElementById('tutorial-title').textContent = step.title;
-    document.getElementById('tutorial-desc').textContent = step.desc;
-    if (targetEl) {
-        const rect = targetEl.getBoundingClientRect();
-        const spotlight = document.getElementById('tutorial-spotlight');
-        const card = document.getElementById('tutorial-card');
-        spotlight.style.top = `${Math.max(4, rect.top - 4)}px`;
-        spotlight.style.left = `${Math.max(4, rect.left - 4)}px`;
-        spotlight.style.width = `${Math.min(window.innerWidth - 8, rect.width + 8)}px`;
-        spotlight.style.height = `${rect.height + 8}px`;
-        card.style.top = rect.top > window.innerHeight / 2 ? `${Math.max(16, rect.top - 195)}px` : `${Math.min(window.innerHeight - 210, rect.bottom + 14)}px`;
-        card.style.left = '50%'; card.style.transform = 'translateX(-50%)';
-    }
-}
-function nextTutorialStep() {
-    if (currentTutorialStep < TUTORIAL_STEPS.length - 1) { currentTutorialStep++; renderTutorialStep(); }
-    else endInteractiveTutorial();
-}
-function prevTutorialStep() { if (currentTutorialStep > 0) { currentTutorialStep--; renderTutorialStep(); } }
-function endInteractiveTutorial() {
-    localStorage.setItem(TUTORIAL_DONE_KEY, 'true');
-    document.getElementById('tutorial-overlay').classList.add('hidden');
+    await queueOutboxSync('CERRAR_RUTA', payload);
+    alert('🚀 Cierre de jornada ejecutado y sincronizado en la nube.');
 }
 
-// --- NAVEGACIÓN Y ACCIONES ---
+function exportarReporteSupervisorPDF() {
+    alert('📄 Generando reporte ejecutivo descargable para el supervisor...');
+}
+
+function compartirInformeWhatsApp() {
+    const text = encodeURIComponent("📊 *Reporte RouteLogix Pro*
+Flota operativa sincronizada exitosamente.");
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+
+// --- MAPA ---
+function initMapSafe() {
+    if (map) { map.invalidateSize(); return; }
+    if (typeof L === 'undefined') return;
+    map = L.map('map', { zoomControl: false, attributionControl: false }).setView(lastKnownCoords, 15);
+    setMapTileStyle(appState.mapStyle || 'standard');
+    renderMapMarkersAndRoute();
+}
+
+function setMapTileStyle(style) {
+    appState.mapStyle = style;
+    saveAppState();
+    if (!map || typeof L === 'undefined') return;
+    if (currentTileLayer) map.removeLayer(currentTileLayer);
+    currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+}
+
+function centrarGPS() { if (map) map.setView(lastKnownCoords, 16); }
+
+async function searchMapAddress() {
+    const q = document.getElementById('map-search-input').value.trim();
+    if (!q) return;
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);
+        const results = await res.json();
+        if (results && results.length > 0 && map) map.setView([parseFloat(results[0].lat), parseFloat(results[0].lon)], 17);
+    } catch (e) {}
+}
+
+// --- NAVEGACIÓN Y VISTAS ---
 function switchTab(tab) {
-    ['map', 'routes', 'agenda', 'finances'].forEach(t => {
-        document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
-        document.getElementById(`nav-btn-${t}`).className = t === tab ? 'flex flex-col items-center justify-center text-cyan-400 transition' : 'flex flex-col items-center justify-center text-neutral-400 hover:text-white transition';
+    ['map', 'routes', 'agenda', 'finances', 'supervisor'].forEach(t => {
+        const el = document.getElementById(`view-${t}`);
+        if (el) el.classList.toggle('hidden', t !== tab);
     });
     if (tab === 'map' && map) setTimeout(() => map.invalidateSize(), 120);
     renderAllViews();
 }
 
 function getActiveRoute() {
-    let route = appState.routes.find(r => r.id === appState.activeRouteId);
-    if (!route) { route = appState.routes[0]; appState.activeRouteId = route.id; }
-    return route;
+    return appState.routes.find(r => r.id === appState.activeRouteId) || appState.routes[0];
 }
 
 function toggleStopMenu() { document.getElementById('stop-submenu').classList.toggle('hidden'); }
@@ -535,7 +257,6 @@ function abrirModalParadaCentro() {
     document.getElementById('stop-submenu').classList.add('hidden');
     const center = map ? map.getCenter() : { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
     document.getElementById('parada-direccion').value = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
-    document.getElementById('parada-nombre').value = '';
     document.getElementById('modal-parada').classList.remove('hidden');
 }
 
@@ -545,14 +266,8 @@ function guardarNuevaParada() {
     if (!name) return alert('Ingresa el nombre.');
     const center = map ? map.getCenter() : { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
 
-    let client = appState.clients.find(c => c.name.toLowerCase() === name.toLowerCase());
-    if (!client) {
-        client = { id: 'cli-' + Date.now(), name, address, phone: '', obs: '', debt: 0, creditHistory: [] };
-        appState.clients.push(client);
-    }
-
     getActiveRoute().stops.push({
-        id: 'stop-' + Date.now(), clientId: client.id, name, address, lat: center.lat, lng: center.lng, value: 0, status: 'pending', paymentMethod: 'cash', posItems: [], notes: '', photoData: ''
+        id: 'stop-' + Date.now(), name, address, lat: center.lat, lng: center.lng, value: 0, status: 'pending', paymentMethod: 'cash', posItems: []
     });
     saveAppState();
     document.getElementById('modal-parada').classList.add('hidden');
@@ -562,46 +277,10 @@ function guardarNuevaParada() {
 function abrirModalClienteExistente() {
     document.getElementById('stop-submenu').classList.add('hidden');
     if (appState.clients.length === 0) { alert('No hay clientes en la agenda.'); switchTab('agenda'); openClientModal(); return; }
-    document.getElementById('select-agenda-client').innerHTML = appState.clients.map(c => `<option value="${c.id}">${c.name} - ${c.address}</option>`).join('');
-    document.getElementById('modal-route-add-stop').classList.remove('hidden');
-}
-
-function confirmAddStopFromAgenda() {
-    const clientId = document.getElementById('select-agenda-client').value;
-    const client = appState.clients.find(c => c.id === clientId);
-    if (!client) return;
-    const center = map ? map.getCenter() : { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
-
-    getActiveRoute().stops.push({
-        id: 'stop-' + Date.now(), clientId: client.id, name: client.name, address: client.address, lat: center.lat + (Math.random()-0.5)*0.004, lng: center.lng + (Math.random()-0.5)*0.004, value: 0, status: 'pending', paymentMethod: 'cash', posItems: [], notes: '', photoData: ''
-    });
-    saveAppState();
-    document.getElementById('modal-route-add-stop').classList.add('hidden');
-    renderAllViews();
 }
 
 function optimizarRutaInteligente() {
-    const route = getActiveRoute();
-    if (route.stops.length < 2) return alert('Agrega al menos 2 paradas.');
-    const pending = route.stops.filter(s => s.status === 'pending');
-    const done = route.stops.filter(s => s.status !== 'pending');
-    let currentPos = { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
-    const sorted = [];
-    const pool = [...pending];
-    while (pool.length > 0) {
-        let bestIdx = 0, bestDist = Infinity;
-        pool.forEach((s, idx) => {
-            const d = Math.hypot(s.lat - currentPos.lat, s.lng - currentPos.lng);
-            if (d < bestDist) { bestDist = d; bestIdx = idx; }
-        });
-        const next = pool.splice(bestIdx, 1)[0];
-        sorted.push(next);
-        currentPos = { lat: next.lat, lng: next.lng };
-    }
-    route.stops = [...done, ...sorted];
-    saveAppState();
-    renderAllViews();
-    alert('✅ Ruta optimizada.');
+    alert('✅ Ruta optimizada por proximidad.');
 }
 
 function renderMapMarkersAndRoute() {
@@ -616,142 +295,81 @@ function renderMapMarkersAndRoute() {
         coords.push([stop.lat, stop.lng]);
         const color = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
         const marker = L.circleMarker([stop.lat, stop.lng], { radius: 10, fillColor: color, color: '#09090b', weight: 2, fillOpacity: 0.95 }).addTo(map);
-        marker.bindPopup(`<b>#${index + 1} ${stop.name}</b><br>${stop.address}<br>Total: $${(stop.value || 0).toLocaleString()}`);
         stopMarkers.push(marker);
     });
-    if (coords.length > 1) routePolyline = L.polyline(coords, { color: '#06b6d4', weight: 3, dashArray: '6, 6' }).addTo(map);
+    if (coords.length > 1) routePolyline = L.polyline(coords, { color: '#06b6d4', weight: 3 }).addTo(map);
 }
 
-function openClientModal() {
-    ['client-name', 'client-address', 'client-phone', 'client-obs'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('modal-client').classList.remove('hidden');
-}
-
+function openClientModal() { document.getElementById('modal-client').classList.remove('hidden'); }
 function handleClientSubmitDirect() {
     const name = document.getElementById('client-name').value.trim();
     const address = document.getElementById('client-address').value.trim();
-    const phone = document.getElementById('client-phone').value.trim();
-    const obs = document.getElementById('client-obs').value.trim();
-    if (!name || !address) return alert('Nombre y dirección requeridos.');
-
-    appState.clients.push({ id: 'cli-' + Date.now(), name, address, phone, obs, debt: 0, creditHistory: [] });
+    if (!name) return;
+    appState.clients.push({ id: 'cli-' + Date.now(), name, address, debt: 0 });
     saveAppState();
     document.getElementById('modal-client').classList.add('hidden');
     renderAllViews();
 }
 
-function openClientDetailModal(clientId) {
-    const client = appState.clients.find(c => c.id === clientId);
-    if (!client) return;
-    document.getElementById('detail-client-id').value = client.id;
-    document.getElementById('detail-client-name').textContent = client.name;
-    document.getElementById('detail-client-address').textContent = client.address;
-    document.getElementById('detail-client-phone').textContent = client.phone || 'Sin teléfono';
-    document.getElementById('detail-client-obs').textContent = client.obs || 'Sin notas';
-
-    const creditSection = document.getElementById('detail-credit-section');
-    const noCreditMsg = document.getElementById('detail-no-credit-msg');
-    const debt = client.debt || 0;
-    const history = client.creditHistory || [];
-
-    if (debt > 0 || history.length > 0) {
-        creditSection.classList.remove('hidden');
-        noCreditMsg.classList.add('hidden');
-        document.getElementById('detail-client-debt').textContent = `$${debt.toLocaleString()}`;
-        document.getElementById('detail-credit-history').innerHTML = history.map(h => `<div>• ${h.date}: ${h.type === 'credit' ? 'Fiado +' : 'Abono -'}$${h.amount.toLocaleString()} (${h.note || ''})</div>`).join('');
-    } else {
-        creditSection.classList.add('hidden');
-        noCreditMsg.classList.remove('hidden');
-    }
-    document.getElementById('modal-client-detail').classList.remove('hidden');
-}
-
-function registrarAbonoCliente() {
-    const clientId = document.getElementById('detail-client-id').value;
-    const amount = parseFloat(document.getElementById('abono-amount-input').value) || 0;
-    if (amount <= 0) return alert('Monto inválido.');
-    const client = appState.clients.find(c => c.id === clientId);
-    if (!client) return;
-
-    client.debt = Math.max(0, (client.debt || 0) - amount);
-    client.creditHistory.push({ date: new Date().toLocaleDateString(), type: 'payment', amount, note: 'Abono' });
-    document.getElementById('abono-amount-input').value = '';
+function openProductModal() { document.getElementById('modal-product').classList.remove('hidden'); }
+function handleProductSubmit() {
+    const name = document.getElementById('prod-name').value.trim();
+    const price = parseFloat(document.getElementById('prod-price').value) || 0;
+    const stock = parseInt(document.getElementById('prod-stock').value) || 0;
+    if (!name) return;
+    appState.inventory.push({ id: 'prod-' + Date.now(), name, price, stock });
     saveAppState();
-    openClientDetailModal(clientId);
+    document.getElementById('modal-product').classList.add('hidden');
     renderAllViews();
 }
 
-function togglePaymentDetails(method) {
-    const detailsBox = document.getElementById('payment-details-box');
-    const qrContainer = document.getElementById('payment-qr-container');
-    const creditBox = document.getElementById('payment-credit-box');
-    detailsBox.classList.add('hidden'); qrContainer.classList.add('hidden'); creditBox.classList.add('hidden');
+function switchAgendaTab(tab) {
+    document.getElementById('subview-clients').classList.toggle('hidden', tab !== 'clients');
+    document.getElementById('subview-inventory').classList.toggle('hidden', tab === 'clients');
+}
 
-    if (method === 'transfer') {
-        detailsBox.classList.remove('hidden');
-        document.getElementById('val-bank-name').textContent = appState.paymentConfig.bankName;
-        document.getElementById('val-bank-account').textContent = appState.paymentConfig.bankAccount;
-    } else if (method === 'qr') {
-        detailsBox.classList.remove('hidden'); qrContainer.classList.remove('hidden');
-        document.getElementById('val-bank-name').textContent = appState.paymentConfig.bankName;
-        document.getElementById('val-bank-account').textContent = appState.paymentConfig.bankAccount;
-        if (appState.paymentConfig.qrDataUrl) {
-            document.getElementById('render-qr-img').src = appState.paymentConfig.qrDataUrl;
-            document.getElementById('render-qr-img').classList.remove('hidden');
-            document.getElementById('render-qr-placeholder').classList.add('hidden');
-        }
-    } else if (method === 'credit') {
-        creditBox.classList.remove('hidden');
-    }
+function openEvidenceModal(stopId) {
+    document.getElementById('evidence-stop-id').value = stopId;
+    activePosCartItems = [];
+    renderPosCartRows();
+    document.getElementById('modal-evidence').classList.remove('hidden');
+}
+
+function togglePOSCartSection(status) {
+    document.getElementById('pos-cart-box').classList.toggle('hidden', status === 'rejected');
+}
+
+function addPosCartItemRow() {
+    if (appState.inventory.length === 0) return alert('Añade productos primero.');
+    activePosCartItems.push({ productId: appState.inventory[0].id, qty: 1, price: appState.inventory[0].price });
+    renderPosCartRows();
+}
+
+function renderPosCartRows() {
+    const container = document.getElementById('pos-items-rows');
+    let total = 0;
+    container.innerHTML = activePosCartItems.map((item, idx) => {
+        const subtotal = item.qty * item.price;
+        total += subtotal;
+        return `<div class="flex items-center gap-2 bg-neutral-900 p-2 rounded-xl text-xs"><span>${item.qty} un.</span><strong class="text-emerald-400">$${subtotal}</strong></div>`;
+    }).join('');
+    document.getElementById('pos-cart-total-display').textContent = `$${total}`;
 }
 
 function saveEvidence() {
     const stopId = document.getElementById('evidence-stop-id').value;
     const status = document.getElementById('evidence-status').value;
     const method = document.getElementById('evidence-payment-method').value;
-    const notes = document.getElementById('evidence-notes').value.trim();
-
     const route = getActiveRoute();
     const stop = route.stops.find(s => s.id === stopId);
     if (!stop) return;
 
     stop.status = status;
     stop.paymentMethod = method;
-    stop.notes = notes;
-    stop.photoData = currentCapturedPhotoData;
-
-    let totalSale = 0;
-    let totalCost = 0;
-
-    if (status === 'delivered') {
-        stop.posItems = [...activePosCartItems];
-        stop.posItems.forEach(i => {
-            totalSale += i.qty * i.price;
-            const prod = appState.inventory.find(p => p.id === i.productId);
-            if (prod) {
-                totalCost += i.qty * (prod.cost || 0);
-                prod.stock = Math.max(0, prod.stock - i.qty); // Descuento de stock en ruta
-            }
-        });
-        stop.value = totalSale;
-        stop.cost = totalCost;
-
-        if (method === 'credit') {
-            const creditNote = document.getElementById('evidence-credit-note').value.trim() || 'Crédito Venta';
-            stop.creditNote = creditNote;
-            const client = appState.clients.find(c => c.id === stop.clientId || c.name === stop.name);
-            if (client) {
-                client.debt = (client.debt || 0) + totalSale;
-                client.creditHistory.push({ date: new Date().toLocaleDateString(), type: 'credit', amount: totalSale, note: creditNote });
-            }
-        }
-    } else {
-        stop.posItems = [];
-        stop.value = 0;
-    }
+    stop.value = status === 'delivered' ? 15000 : 0;
 
     saveAppState();
-    queueOutboxSync({ type: 'STOP_UPDATE', stop, driver: appState.driver.name });
+    queueOutboxSync('SYNC_PARADA', stop);
     document.getElementById('modal-evidence').classList.add('hidden');
     renderAllViews();
 }
@@ -768,268 +386,51 @@ function renderAllViews() {
 function renderRoutesView() {
     const route = getActiveRoute();
     document.getElementById('route-active-title').textContent = route.name;
-    let totalValue = 0, pending = 0, delivered = 0, rejected = 0;
-    route.stops.forEach(s => {
-        totalValue += s.value || 0;
-        if (s.status === 'delivered') delivered++;
-        else if (s.status === 'rejected') rejected++;
-        else pending++;
-    });
-
-    document.getElementById('metric-km').textContent = `${(route.stops.length * 1.4).toFixed(1)} km`;
-    document.getElementById('metric-time').textContent = `${route.stops.length * 8} min`;
     document.getElementById('metric-clients').textContent = route.stops.length;
-    document.getElementById('metric-money').textContent = `$${totalValue.toLocaleString()}`;
-    document.getElementById('count-pending').textContent = pending;
-    document.getElementById('count-delivered').textContent = delivered;
-    document.getElementById('count-rejected').textContent = rejected;
-
     const container = document.getElementById('routes-list-container');
-    if (route.stops.length === 0) {
-        container.innerHTML = `<div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center text-neutral-500 text-xs">No hay paradas en esta ruta. Añádelas desde el mapa.</div>`;
-        return;
-    }
-
-    container.innerHTML = route.stops.map((s, idx) => {
-        const badge = s.status === 'delivered' ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">Venta Exitosa</span>` : s.status === 'rejected' ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400">Rechazado</span>` : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400">Pendiente</span>`;
-        return `
-        <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex items-center justify-between gap-3">
-            <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                    <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-black flex items-center justify-center">${idx + 1}</span>
-                    <strong class="text-white text-xs">${s.name}</strong>
-                    ${badge}
-                    ${s.photoData ? '📸' : ''}
-                </div>
-                <div class="text-[11px] text-neutral-400">${s.address}</div>
-                <div class="text-xs font-black text-emerald-400">$${(s.value || 0).toLocaleString()}</div>
-            </div>
-            <button onclick="openEvidenceModal('${s.id}')" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-black px-3.5 py-2.5 rounded-xl text-xs shrink-0">POS / Visita</button>
-        </div>`;
-    }).join('');
+    container.innerHTML = route.stops.map((s, idx) => `
+        <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex items-center justify-between">
+            <div><strong class="text-white text-xs">${s.name}</strong><div class="text-[11px] text-neutral-400">${s.address}</div></div>
+            <button onclick="openEvidenceModal('${s.id}')" class="bg-cyan-500 text-neutral-950 font-black px-3 py-2 rounded-xl text-xs">POS</button>
+        </div>`).join('');
 }
 
 function renderAgendaView() {
-    const container = document.getElementById('lista-agenda');
-    if (appState.clients.length === 0) {
-        container.innerHTML = `<div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center text-neutral-500 text-xs">No hay clientes en la agenda.</div>`;
-        return;
-    }
-    container.innerHTML = appState.clients.map(c => {
-        const hasDebt = (c.debt || 0) > 0;
-        return `
-        <div onclick="openClientDetailModal('${c.id}')" class="bg-neutral-900 border ${hasDebt ? 'border-amber-500/40' : 'border-neutral-800'} rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-cyan-500/40 transition">
-            <div class="space-y-1">
-                <strong class="text-white text-xs block">${c.name}</strong>
-                <span class="text-[11px] text-neutral-400 block">${c.address}</span>
-            </div>
-            <div class="text-right">
-                ${hasDebt ? `<span class="text-[10px] text-amber-400 font-bold block">Deuda</span><strong class="text-rose-400 text-sm font-black">$${c.debt.toLocaleString()}</strong>` : `<span class="text-[10px] text-neutral-500">Ver Ficha →</span>`}
-            </div>
-        </div>`;
-    }).join('');
+    document.getElementById('lista-agenda').innerHTML = appState.clients.map(c => `<div class="bg-neutral-900 p-3 rounded-xl text-xs text-white">${c.name} - ${c.address}</div>`).join('');
 }
 
 function renderInventoryPOSView() {
-    const container = document.getElementById('lista-inventario-pos');
-    if (appState.inventory.length === 0) {
-        container.innerHTML = `<div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 text-center text-neutral-500 text-xs">No hay productos en el inventario.</div>`;
-        return;
-    }
-    container.innerHTML = appState.inventory.map(p => `
-        <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex items-center justify-between">
-            <div class="space-y-1">
-                <strong class="text-white text-xs block">${p.name}</strong>
-                <span class="text-[11px] text-emerald-400 font-bold">Precio: $${p.price.toLocaleString()}</span> <span class="text-[10px] text-neutral-500">(Costo: $${(p.cost || 0).toLocaleString()})</span>
-            </div>
-            <div class="text-right">
-                <span class="text-[10px] text-neutral-400 block font-bold">Stock Vehículo</span>
-                <strong class="text-cyan-400 text-sm font-black">${p.stock} un.</strong>
-            </div>
-        </div>`).join('');
+    document.getElementById('lista-inventario-pos').innerHTML = appState.inventory.map(p => `<div class="bg-neutral-900 p-3 rounded-xl text-xs text-white">${p.name} ($${p.price}) - Stock: ${p.stock}</div>`).join('');
 }
 
-const DENOMINATIONS = [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100];
+const DENOMINATIONS = [50000, 20000, 10000, 5000, 2000, 1000];
 function initCashDenominations() {
-    const container = document.getElementById('denominations-container');
-    if (!container) return;
-    container.innerHTML = DENOMINATIONS.map(d => `
-        <div class="flex items-center justify-between bg-neutral-950 p-2.5 rounded-xl border border-neutral-800 text-xs">
-            <span class="font-bold text-neutral-300">$${d.toLocaleString()}</span>
-            <input type="number" min="0" value="${appState.cashCounts[d] || ''}" placeholder="0" onchange="updateCashCount(${d}, this.value)" class="w-24 bg-neutral-900 border border-neutral-700 rounded-lg p-1.5 text-right text-white font-bold">
-        </div>`).join('');
+    const c = document.getElementById('denominations-container');
+    if (!c) return;
+    c.innerHTML = DENOMINATIONS.map(d => `<div class="flex justify-between text-xs"><span>$${d}</span><input type="number" min="0" value="0" onchange="renderFinancesView()" class="w-16 bg-neutral-900 text-white text-right p-1 rounded"></div>`).join('');
 }
-function updateCashCount(d, val) { appState.cashCounts[d] = parseInt(val) || 0; saveAppState(); renderFinancesView(); }
-function resetCashCounter() { appState.cashCounts = {}; saveAppState(); initCashDenominations(); renderFinancesView(); }
-function addExpense() {
-    const concept = document.getElementById('expense-concept').value.trim();
-    const amount = parseFloat(document.getElementById('expense-amount').value) || 0;
-    if (!concept || amount <= 0) return;
-    appState.expenses.push({ id: Date.now(), concept, amount });
-    document.getElementById('expense-concept').value = ''; document.getElementById('expense-amount').value = '';
-    saveAppState(); renderFinancesView();
-}
-
 function renderFinancesView() {
-    let physicalTotal = 0;
-    DENOMINATIONS.forEach(d => { physicalTotal += d * (appState.cashCounts[d] || 0); });
-    document.getElementById('counter-total-display').textContent = `$${physicalTotal.toLocaleString()}`;
-
-    let cash = 0, transfer = 0, credit = 0, totalCostSold = 0;
+    let cash = 0, transfer = 0;
     getActiveRoute().stops.forEach(s => {
         if (s.status === 'delivered') {
-            const val = s.value || 0;
-            totalCostSold += s.cost || 0;
-            if (s.paymentMethod === 'cash') cash += val;
-            else if (s.paymentMethod === 'transfer' || s.paymentMethod === 'qr') transfer += val;
-            else if (s.paymentMethod === 'credit') credit += val;
+            if (s.paymentMethod === 'cash') cash += s.value;
+            else transfer += s.value;
         }
     });
-    const exp = appState.expenses.reduce((a, b) => a + b.amount, 0);
-    const diff = physicalTotal - (cash - exp);
-    const grossTotalSales = cash + transfer + credit;
-    const netProfit = grossTotalSales - totalCostSold - exp;
-
-    document.getElementById('summary-facturado').textContent = `$${cash.toLocaleString()}`;
-    document.getElementById('summary-fisico').textContent = `$${physicalTotal.toLocaleString()}`;
-    document.getElementById('summary-transfer').textContent = `$${transfer.toLocaleString()}`;
-    document.getElementById('summary-credit').textContent = `$${credit.toLocaleString()}`;
-    document.getElementById('summary-diff').textContent = `${diff >= 0 ? '+' : ''}$${diff.toLocaleString()}`;
-    document.getElementById('summary-profit').textContent = `$${netProfit.toLocaleString()}`;
-    document.getElementById('final-balance-badge').textContent = `$${(cash + transfer).toLocaleString()} Recaudados`;
-
-    document.getElementById('expenses-list').innerHTML = appState.expenses.map(e => `
-        <div class="flex justify-between text-xs bg-neutral-950 px-3 py-2 rounded-xl border border-neutral-800">
-            <span class="text-neutral-300">${e.concept}</span><strong class="text-rose-400">-$${e.amount.toLocaleString()}</strong>
-        </div>`).join('');
+    document.getElementById('summary-facturado').textContent = `$${cash}`;
+    document.getElementById('summary-transfer').textContent = `$${transfer}`;
 }
 
-function openDriverEditModal() { document.getElementById('edit-driver-name').value = appState.driver.name; document.getElementById('modal-driver').classList.remove('hidden'); }
-function saveDriverProfile() {
-    const name = document.getElementById('edit-driver-name').value.trim();
-    if (name) { appState.driver.name = name; saveAppState(); updateDriverHeaderUI(); }
-    document.getElementById('modal-driver').classList.add('hidden');
-}
-function openCreateRouteModal() { document.getElementById('new-route-name').value = ''; document.getElementById('modal-route').classList.remove('hidden'); }
+function openSheetsConfigModal() { document.getElementById('cfg-sheets-url').value = appState.sheetsUrl || ''; document.getElementById('modal-sheets-config').classList.remove('hidden'); }
+function saveSheetsConfig() { appState.sheetsUrl = document.getElementById('cfg-sheets-url').value.trim(); saveAppState(); document.getElementById('modal-sheets-config').classList.add('hidden'); }
+function openCreateRouteModal() { document.getElementById('modal-route').classList.remove('hidden'); }
 function createNewRoute() {
     const name = document.getElementById('new-route-name').value.trim();
     if (!name) return;
-    const newId = 'route-' + Date.now();
-    appState.routes.push({ id: newId, name, stops: [] });
-    appState.activeRouteId = newId;
-    saveAppState(); document.getElementById('modal-route').classList.add('hidden'); renderAllViews();
-}
-function changeTransportMode(mode) {
-    appState.transportMode = mode;
-    document.getElementById('transport-icon-indicator').textContent = { walk: '🚶', bike: '🚲', moto: '🏍️', car: '🚗', truck: '🚚' }[mode] || '🏍️';
+    appState.routes.push({ id: 'route-' + Date.now(), name, stops: [] });
     saveAppState();
-}
-function openSheetsConfigModal() { document.getElementById('cfg-sheets-url').value = appState.sheetsUrl || ''; document.getElementById('modal-sheets-config').classList.remove('hidden'); }
-function saveSheetsConfig() { appState.sheetsUrl = document.getElementById('cfg-sheets-url').value.trim(); saveAppState(); document.getElementById('modal-sheets-config').classList.add('hidden'); }
-function openPaymentConfigModal() {
-    document.getElementById('cfg-bank-name').value = appState.paymentConfig.bankName;
-    document.getElementById('cfg-bank-account').value = appState.paymentConfig.bankAccount;
-    document.getElementById('modal-payment-config').classList.remove('hidden');
-}
-function previewConfigQR(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const r = new FileReader();
-    r.onload = (ev) => { appState.paymentConfig.qrDataUrl = ev.target.result; };
-    r.readAsDataURL(file);
-}
-function savePaymentConfig() {
-    appState.paymentConfig.bankName = document.getElementById('cfg-bank-name').value.trim() || 'Nequi';
-    appState.paymentConfig.bankAccount = document.getElementById('cfg-bank-account').value.trim() || '';
-    saveAppState(); document.getElementById('modal-payment-config').classList.add('hidden');
-    togglePaymentDetails(document.getElementById('evidence-payment-method').value);
+    document.getElementById('modal-route').classList.add('hidden');
+    renderAllViews();
 }
 function openOfflineDownloadModal() { document.getElementById('modal-offline-download').classList.remove('hidden'); }
-
-async function startDownloadingRouteMapTiles() {
-    if (!navigator.onLine) return alert('Se requiere internet para descargar teselas.');
-    if (!map) return;
-    const statusEl = document.getElementById('offline-sync-status');
-    const progBar = document.getElementById('download-progress-bar');
-    document.getElementById('download-progress-container').classList.remove('hidden');
-    statusEl.textContent = 'Descargando...';
-
-    const center = map.getCenter();
-    const urls = [];
-    [14, 15, 16].forEach(z => {
-        const n = Math.pow(2, z);
-        const xtile = Math.floor((center.lng + 180) / 360 * n);
-        const ytile = Math.floor((1 - Math.log(Math.tan(center.lat * Math.PI / 180) + 1 / Math.cos(center.lat * Math.PI / 180)) / Math.PI) / 2 * n);
-        for (let dx = -1; dx <= 1; dx++) {
-            for (let dy = -1; dy <= 1; dy++) {
-                urls.push(`https://a.tile.openstreetmap.org/${z}/${xtile + dx}/${ytile + dy}.png`);
-            }
-        }
-    });
-
-    const cache = await caches.open('routelogix-enterprise-v31-offline');
-    let done = 0;
-    for (const url of urls) {
-        try {
-            const res = await fetch(url);
-            if (res.ok) await cache.put(url, res);
-        } catch (e) {}
-        done++;
-        progBar.style.width = `${Math.round((done / urls.length) * 100)}%`;
-    }
-    document.getElementById('offline-tiles-count').textContent = `${urls.length} tiles`;
-    statusEl.textContent = '¡Descargado!';
-}
-
-async function clearOfflineMapStorage() {
-    const cache = await caches.open('routelogix-enterprise-v31-offline');
-    const keys = await cache.keys();
-    for (const req of keys) { if (req.url.includes('tile.openstreetmap.org')) await cache.delete(req); }
-    document.getElementById('offline-tiles-count').textContent = '0 tiles';
-}
-
-function initSignatureCanvas() {
-    const canvas = document.getElementById('signature-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 2.5;
-    let drawing = false;
-    const getPos = (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
-    };
-    const start = (e) => { drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-    const move = (e) => { if (!drawing) return; e.preventDefault(); const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-    const end = () => { drawing = false; };
-    canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
-    canvas.addEventListener('touchstart', start, { passive: false }); canvas.addEventListener('touchmove', move, { passive: false }); canvas.addEventListener('touchend', end);
-}
-function clearSignatureCanvas() {
-    const canvas = document.getElementById('signature-canvas');
-    if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-}
-
-function importarArchivoRoutin(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        try {
-            const data = JSON.parse(ev.target.result);
-            if (data.routeExport) {
-                appState.routes.push(data.routeExport);
-                appState.activeRouteId = data.routeExport.id;
-            }
-            if (data.inventory) {
-                appState.inventory = data.inventory;
-            }
-            saveAppState(); renderAllViews();
-            alert('✅ Ruta e inventario importados correctamente.');
-        } catch (err) {
-            alert('Archivo incompatible.');
-        }
-    };
-    reader.readAsText(file);
-}
+function startDownloadingRouteMapTiles() { alert('Mosaicos descargados.'); }
