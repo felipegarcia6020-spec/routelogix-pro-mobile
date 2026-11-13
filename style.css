@@ -1,1 +1,21 @@
-body { box-sizing: border-box; }
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body {
+  height: 100dvh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+}
+input, select, textarea, button {
+  font-size: 16px;
+}
+@media (min-width: 640px) {
+  input, select, textarea, button {
+    font-size: inherit;
+  }
+}
