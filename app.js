@@ -1,6 +1,6 @@
-// RouteLogix Pro Enterprise v31 - Full Mobile, Perfiles Independientes, Instalación PWA y Todas las Funciones
+// RouteLogix Pro Enterprise v32 - Marcadores Numéricos, Navegación Waze y Sincronización Automática con Agenda
 
-const APP_STORAGE_KEY = 'routelogix_v31_state_v6';
+const APP_STORAGE_KEY = 'routelogix_v32_state_v7';
 
 let appState = {
     driver: {
@@ -9,14 +9,11 @@ let appState = {
         phone: '',
         role: 'independent',
         loggedIn: false,
-        // Datos exclusivos Autovendedor Independiente
         bizName: 'Mi Emprendimiento',
         bizNit: '',
         bizAddress: '¡Gracias por su compra!',
-        // Datos exclusivos Conductor de Flota
         fleetPlate: '',
         fleetCompany: '',
-        // Datos exclusivos Supervisor
         supRole: 'Supervisor de Operaciones',
         supZone: ''
     },
@@ -49,7 +46,6 @@ let lastGeneratedReceiptText = '';
 let currentTourStep = 1;
 let deferredInstallPrompt = null;
 
-// Capturar evento nativo de instalación PWA (Chrome/Android/Edge)
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
@@ -137,7 +133,7 @@ function saveAppState() {
     localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(appState));
 }
 
-// --- INSTALACIÓN / DESCARGA PWA ---
+// --- INSTALACIÓN PWA ---
 function openInstallModal() {
     if (deferredInstallPrompt) {
         document.getElementById('pwa-native-install-box').classList.remove('hidden');
@@ -155,7 +151,7 @@ async function triggerNativePwaInstall() {
     }
 }
 
-// --- TUTORIAL / TOUR INICIAL ---
+// --- TOUR GUIADO ---
 function startOnboardingTour() {
     currentTourStep = 1;
     updateTourStepUI();
@@ -173,20 +169,20 @@ function updateTourStepUI() {
     });
 
     if (currentTourStep === 1) {
-        title.textContent = '1. Mapa GPS y Velocímetro';
-        desc.textContent = 'Visualiza tu ubicación en tiempo real, velocidad en km/h, descarga zonas para uso sin internet y añade paradas exactas con el cursor central.';
+        title.textContent = '1. Marcadores Numéricos en Mapa';
+        desc.textContent = 'Cada parada ahora muestra un número visible (1, 2, 3...) con códigos de color para identificar el estado de tus entregas al instante.';
         btnNext.textContent = 'Siguiente';
     } else if (currentTourStep === 2) {
-        title.textContent = '2. Autovendedor Independiente (POS)';
-        desc.textContent = 'Gestiona tu inventario propio, cobra productos en cada parada y genera recibos personalizados con los datos de tu emprendimiento para enviar por WhatsApp.';
+        title.textContent = '2. Navegación Estilo Waze';
+        desc.textContent = 'Un banner flotante superior te guía paso a paso hacia la siguiente parada activa, indicando distancia exacta y botón directo de navegación GPS.';
         btnNext.textContent = 'Siguiente';
     } else if (currentTourStep === 3) {
-        title.textContent = '3. Conductor de Flota & Caja';
-        desc.textContent = 'Optimiza tus secuencias de entrega con IA, navega con Waze/Google Maps, registra gastos operativos y realiza el arqueo físico de efectivo al cierre.';
+        title.textContent = '3. Sincronización con Agenda';
+        desc.textContent = 'Al registrar una nueva parada en el mapa, la app la añade automáticamente a tu ruta y crea el cliente en tu agenda sin pasos extra.';
         btnNext.textContent = 'Siguiente';
     } else if (currentTourStep === 4) {
-        title.textContent = '4. Panel de Supervisor Cloud';
-        desc.textContent = 'Supervisa métricas en vivo sincronizadas con Google Sheets, exporta reportes ejecutivos y protege el acceso con PIN personalizable.';
+        title.textContent = '4. POS, Caja & Supervisor';
+        desc.textContent = 'Disfruta de inventario propio, impresión de recibos personalizados, arqueo físico de efectivo y control en tiempo real en la nube.';
         btnNext.textContent = '¡Comenzar!';
     }
 }
@@ -259,7 +255,6 @@ function configureRoleInterface() {
         switchTab('supervisor');
         cargarDatosSupervisorCloud();
     } else if (role === 'fleet') {
-        // Conductor de Flota: SIN inventario POS ni datos de emprendimiento
         if (btnRouteBiz) btnRouteBiz.style.display = 'none';
         if (agendaTabsHeader) agendaTabsHeader.style.display = 'none';
         if (metricMoneyLabel) metricMoneyLabel.textContent = 'Recaudo';
@@ -271,7 +266,6 @@ function configureRoleInterface() {
             <button onclick="switchTab('finances')" id="nav-btn-finances" class="flex flex-col items-center justify-center text-neutral-400 transition py-1.5"><i data-lucide="wallet" class="w-5 h-5"></i><span class="text-[10px] mt-1 font-bold">Caja</span></button>`;
         switchTab('map');
     } else {
-        // Autovendedor Independiente: POS completo + Inventario + Recibos
         if (btnRouteBiz) btnRouteBiz.style.display = 'block';
         if (agendaTabsHeader) agendaTabsHeader.style.display = 'flex';
         if (metricMoneyLabel) metricMoneyLabel.textContent = 'Venta';
@@ -308,7 +302,6 @@ function updateDriverHeaderUI() {
     initIconsSafe();
 }
 
-// --- MODAL PERFIL DESLIGADO POR ROL ---
 function openDriverEditModal() {
     const d = appState.driver;
     const role = d.role;
@@ -316,7 +309,6 @@ function openDriverEditModal() {
     document.getElementById('edit-driver-name').value = d.name || '';
     document.getElementById('edit-user-phone').value = d.phone || '';
 
-    // Ocultar todas las secciones específicas primero
     document.getElementById('profile-fields-independent').classList.add('hidden');
     document.getElementById('profile-fields-fleet').classList.add('hidden');
     document.getElementById('profile-fields-supervisor').classList.add('hidden');
@@ -368,7 +360,7 @@ function saveDriverProfile() {
     alert('✅ Información actualizada.');
 }
 
-// --- GPS WATCH & SPEED ---
+// --- GPS WATCH, SPEED & WAZE NAVIGATION BANNER ---
 function startGpsWatch() {
     if (!('geolocation' in navigator)) {
         updateGpsStatus('GPS no disponible', false);
@@ -387,6 +379,7 @@ function startGpsWatch() {
 
             updateGpsStatus('GPS Activo', true);
             updateUserMarker(lat, lng);
+            updateWazeNavigationBanner(lat, lng);
 
             if (isGpsTrackingActive && map) {
                 map.setView([lat, lng], map.getZoom());
@@ -417,6 +410,53 @@ function updateUserMarker(lat, lng) {
     } else {
         userMarker.setLatLng([lat, lng]);
     }
+}
+
+// Actualizar banner de navegación tipo Waze hacia la siguiente parada pendiente
+function updateWazeNavigationBanner(currentLat, currentLng) {
+    const route = getActiveRoute();
+    const pendingStops = route.stops.filter(s => s.status === 'pending');
+    const banner = document.getElementById('waze-nav-banner');
+    
+    if (!banner) return;
+    if (pendingStops.length === 0) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    const nextStop = pendingStops[0];
+    const stopIndex = route.stops.indexOf(nextStop) + 1;
+
+    // Calcular distancia aproximada en metros o kilómetros
+    const dLat = (nextStop.lat - currentLat) * 111320;
+    const dLng = (nextStop.lng - currentLng) * 111320 * Math.cos(currentLat * Math.PI / 180);
+    const distMeters = Math.hypot(dLat, dLng);
+    
+    let distStr = `${Math.round(distMeters)} m`;
+    let etaMins = Math.max(1, Math.round(distMeters / 250)); // aprox 15 km/h en ciudad
+    if (distMeters >= 1000) {
+        distStr = `${(distMeters / 1000).toFixed(1)} km`;
+        etaMins = Math.round(distMeters / 400);
+    }
+
+    document.getElementById('nav-step-distance').textContent = distStr;
+    document.getElementById('nav-step-eta').textContent = `~${etaMins} min`;
+    document.getElementById('nav-next-stop-title').textContent = `Parada #${stopIndex}: ${nextStop.name}`;
+    banner.classList.remove('hidden');
+}
+
+function abrirNavegacionExternaActual() {
+    const route = getActiveRoute();
+    const nextStop = route.stops.find(s => s.status === 'pending') || route.stops[0];
+    if (!nextStop) return alert('No hay paradas activas.');
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${nextStop.lat},${nextStop.lng}`, '_blank');
+}
+
+function completarParadaActualDesdeNavegador() {
+    const route = getActiveRoute();
+    const nextStop = route.stops.find(s => s.status === 'pending');
+    if (!nextStop) return alert('No hay paradas pendientes.');
+    openEvidenceModal(nextStop.id);
 }
 
 function toggleGpsTracking() {
@@ -654,7 +694,7 @@ async function searchMapAddress() {
     } catch (e) {}
 }
 
-// --- NAVEGACIÓN Y CAMBIO DE COLOR DE PESTAÑA ACTIVA ---
+// --- NAVEGACIÓN Y PESTAÑAS ---
 function switchTab(tab) {
     ['map', 'routes', 'agenda', 'finances', 'supervisor'].forEach(t => {
         const el = document.getElementById(`view-${t}`);
@@ -694,21 +734,33 @@ function abrirModalParadaCentro() {
     const center = map ? map.getCenter() : { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
     document.getElementById('parada-nombre').value = '';
     document.getElementById('parada-direccion').value = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
+    document.getElementById('parada-telefono').value = '';
     document.getElementById('modal-parada').classList.remove('hidden');
 }
 
-function guardarNuevaParada() {
+// Sincronización Automática: Al guardar nueva parada, se crea en la ruta Y en la agenda de clientes
+function guardarNuevaParadaYCliente() {
     const name = document.getElementById('parada-nombre').value.trim();
     const address = document.getElementById('parada-direccion').value.trim();
-    if (!name) return alert('Ingresa el nombre del punto o cliente.');
+    const phone = document.getElementById('parada-telefono').value.trim();
+
+    if (!name) return alert('Ingresa el nombre del negocio o cliente.');
     const center = map ? map.getCenter() : { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
 
+    // 1. Crear parada en la ruta activa
+    const stopId = 'stop-' + Date.now();
     getActiveRoute().stops.push({
-        id: 'stop-' + Date.now(), name, address, lat: center.lat, lng: center.lng, value: 0, status: 'pending', paymentMethod: 'cash', posItems: []
+        id: stopId, name, address, lat: center.lat, lng: center.lng, value: 0, status: 'pending', paymentMethod: 'cash', posItems: []
     });
+
+    // 2. Crear cliente automáticamente en la Agenda
+    const clientId = 'cli-' + Date.now();
+    appState.clients.push({ id: clientId, name, address, phone, debt: 0 });
+
     saveAppState();
     document.getElementById('modal-parada').classList.add('hidden');
     renderAllViews();
+    alert(`✅ Parada añadida a la ruta y cliente registrado en la agenda con éxito.`);
 }
 
 function abrirModalClienteExistente() {
@@ -801,6 +853,7 @@ function calcularMetricasRuta(stops) {
     return { km: totalKm.toFixed(1), mins: Math.round(totalKm * 2.5 + stops.length * 5) };
 }
 
+// --- RENDERIZAR MARCADORES NUMÉRICOS EN EL MAPA ---
 function renderMapMarkersAndRoute() {
     if (!map || typeof L === 'undefined') return;
     stopMarkers.forEach(m => map.removeLayer(m));
@@ -811,13 +864,26 @@ function renderMapMarkersAndRoute() {
     const coords = [];
     route.stops.forEach((stop, idx) => {
         coords.push([stop.lat, stop.lng]);
-        const color = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
-        const marker = L.circleMarker([stop.lat, stop.lng], { radius: 10, fillColor: color, color: '#09090b', weight: 2, fillOpacity: 0.95 })
-            .bindPopup(`<strong>${idx + 1}. ${stop.name}</strong><br>${stop.address}`)
+        const num = idx + 1;
+        const colorBg = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
+        
+        // Crear icono HTML personalizado con número visible
+        const numberedIcon = L.divIcon({
+            className: 'custom-numbered-marker',
+            html: `<div style="background-color: ${colorBg}; color: #030712; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; border: 2px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">${num}</div>`,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
+        const marker = L.marker([stop.lat, stop.lng], { icon: numberedIcon })
+            .bindPopup(`<strong>Parada #${num}: ${stop.name}</strong><br>${stop.address}<br>Estado: <b>${stop.status.toUpperCase()}</b>`)
             .addTo(map);
         stopMarkers.push(marker);
     });
-    if (coords.length > 1) routePolyline = L.polyline(coords, { color: '#06b6d4', weight: 3.5 }).addTo(map);
+
+    if (coords.length > 1) {
+        routePolyline = L.polyline(coords, { color: '#06b6d4', weight: 4, opacity: 0.8 }).addTo(map);
+    }
 }
 
 function openClientModal() { document.getElementById('modal-client').classList.remove('hidden'); }
@@ -1007,6 +1073,7 @@ function renderRoutesView() {
     }
 
     container.innerHTML = route.stops.map((s, idx) => {
+        const num = idx + 1;
         const statusBadge = s.status === 'delivered'
             ? '<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">Entregado</span>'
             : s.status === 'rejected'
@@ -1017,7 +1084,7 @@ function renderRoutesView() {
         <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-3.5 flex items-center justify-between gap-2">
             <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5">
-                    <span class="text-[10px] font-black text-cyan-400">#${idx + 1}</span>
+                    <span class="w-5 h-5 rounded-full bg-cyan-500 text-neutral-950 font-black text-[10px] flex items-center justify-center shrink-0">${num}</span>
                     <strong class="text-white text-xs truncate">${s.name}</strong>
                     ${statusBadge}
                 </div>

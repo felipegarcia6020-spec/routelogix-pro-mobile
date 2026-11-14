@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RouteLogix Pro | Enterprise v31 Full Mobile</title>
+    <title>RouteLogix Pro | Enterprise v32 Navigation & Numeric Markers</title>
     
     <meta name="theme-color" content="#030712">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -20,13 +20,13 @@
 </head>
 <body class="h-[100dvh] w-full text-gray-100 bg-neutral-950 flex flex-col justify-between selection:bg-cyan-500 selection:text-black overflow-hidden font-sans overscroll-none">
 
-    <!-- TOUR GUIADO INICIAL (INTRO / TUTORIAL COMPLETO) -->
+    <!-- TOUR GUIADO INICIAL -->
     <div id="tour-onboarding-modal" class="fixed inset-0 z-50 bg-neutral-950/90 backdrop-blur-md hidden flex items-center justify-center p-5">
         <div class="bg-neutral-900 border border-cyan-500/50 w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-5 text-center">
             <div class="w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 rounded-2xl flex items-center justify-center mx-auto font-black text-2xl shadow-lg">RL</div>
             <div class="space-y-2">
-                <h2 id="tour-step-title" class="text-lg font-black text-white">1. Mapa GPS y Rastreo en Vivo</h2>
-                <p id="tour-step-desc" class="text-xs text-neutral-300 leading-relaxed">Visualiza tu ubicación en tiempo real, velocímetro en km/h, mapas offline y añade paradas exactas con el cursor central.</p>
+                <h2 id="tour-step-title" class="text-lg font-black text-white">1. Navegadores & Marcadores Numéricos</h2>
+                <p id="tour-step-desc" class="text-xs text-neutral-300 leading-relaxed">El mapa muestra ahora marcadores numerados del 1 en adelante y un panel de navegación estilo Waze con indicaciones en tiempo real hacia tu próxima parada.</p>
             </div>
             <div class="flex items-center justify-center gap-2 py-1">
                 <span class="w-2.5 h-2.5 rounded-full bg-cyan-500 transition-all" id="dot-1"></span>
@@ -36,7 +36,7 @@
             </div>
             <div class="flex gap-2.5 pt-1">
                 <button onclick="nextTourStep()" id="tour-btn-next" class="flex-1 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 py-3.5 rounded-xl font-black text-xs transition active:scale-95">Siguiente</button>
-                <button onclick="closeOnboardingTour()" class="bg-neutral-800 hover:bg-neutral-750 text-neutral-300 px-4 py-3.5 rounded-xl font-bold text-xs transition">Omitir</button>
+                <button onclick="closeOnboardingTour()" class="bg-neutral-800 text-neutral-300 px-4 py-3.5 rounded-xl font-bold text-xs transition">Omitir</button>
             </div>
         </div>
     </div>
@@ -59,7 +59,7 @@
                 <p><strong>Android (Chrome):</strong> Toca el menú <span class="text-white font-bold">⋮</span> arriba a la derecha y selecciona <strong>"Instalar aplicación"</strong> o <strong>"Añadir a pantalla de inicio"</strong>.</p>
                 <p><strong>iPhone (Safari):</strong> Toca el botón <strong>Compartir</strong> <span class="text-white font-bold">⍗</span> abajo y elige <strong>"Añadir a pantalla de inicio"</strong>.</p>
             </div>
-            <button onclick="document.getElementById('modal-install-pwa').classList.add('hidden')" class="w-full bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold py-3 rounded-xl transition">Entendido</button>
+            <button onclick="document.getElementById('modal-install-pwa').classList.add('hidden')" class="w-full bg-neutral-800 text-neutral-200 font-bold py-3 rounded-xl transition">Entendido</button>
         </div>
     </div>
 
@@ -69,7 +69,7 @@
             <div class="text-center space-y-1.5">
                 <div class="w-14 h-14 bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 rounded-2xl flex items-center justify-center mx-auto mb-1 font-black text-2xl shadow-lg">RL</div>
                 <h1 class="text-xl font-black text-white tracking-wider">ROUTELOGIX PRO</h1>
-                <p class="text-[11px] text-neutral-400 font-medium">Enterprise v31 • Perfiles Independientes</p>
+                <p class="text-[11px] text-neutral-400 font-medium">Enterprise v32 • Waze Navigation & Numeric Markers</p>
             </div>
 
             <div id="form-login" class="space-y-3 text-xs">
@@ -105,7 +105,7 @@
         </div>
     </div>
 
-    <!-- TOP HEADER (COMPACTO Y OPTIMIZADO PARA MÓVIL) -->
+    <!-- TOP HEADER -->
     <header class="bg-neutral-900/95 border-b border-neutral-800 px-3 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-xl shrink-0">
         <div class="flex items-center space-x-2.5 cursor-pointer min-w-0 flex-1 pr-2" onclick="openDriverEditModal()" title="Editar Perfil">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-neutral-950 font-black flex items-center justify-center text-xs shadow-md border border-cyan-400/30 shrink-0">
@@ -154,14 +154,38 @@
                 <button onclick="searchMapAddress()" class="bg-cyan-500 hover:bg-cyan-400 text-neutral-950 px-3.5 rounded-2xl shadow-lg flex items-center justify-center text-xs font-black transition">Ir</button>
             </div>
 
-            <div class="absolute top-14 left-2.5 right-2.5 z-30 flex items-center justify-between gap-1 pointer-events-none">
+            <!-- PANEL DE NAVEGACIÓN ESTILO WAZE / GOOGLE MAPS (FLOTANTE) -->
+            <div id="waze-nav-banner" class="absolute top-14 left-2.5 right-2.5 z-30 bg-neutral-900/95 border-2 border-cyan-500/70 rounded-2xl p-3 shadow-2xl backdrop-blur-md hidden flex items-center justify-between gap-2">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-500 text-neutral-950 flex items-center justify-center font-black text-base shrink-0 shadow-lg">
+                        <i data-lucide="navigation-2" class="w-6 h-6 animate-pulse"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1.5">
+                            <span id="nav-step-distance" class="text-xs font-black text-cyan-400">120 m</span>
+                            <span class="text-[10px] text-neutral-400">•</span>
+                            <span id="nav-step-eta" class="text-[11px] font-bold text-amber-400">3 min</span>
+                        </div>
+                        <h4 id="nav-next-stop-title" class="text-xs font-black text-white truncate">Siguiente: Parada #1</h4>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button onclick="abrirNavegacionExternaActual()" class="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md transition" title="Abrir en Waze / Google Maps">
+                        <i data-lucide="compass" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="completarParadaActualDesdeNavegador()" class="p-2.5 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 rounded-xl text-xs font-black shadow-md transition" title="Completar Parada">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="absolute top-28 left-2.5 right-2.5 z-30 flex items-center justify-between gap-1 pointer-events-none" id="map-controls-subbar">
                 <div class="flex gap-1 bg-neutral-900/95 p-1 rounded-xl border border-neutral-700 text-[10px] shadow-2xl font-bold pointer-events-auto">
                     <button onclick="setMapTileStyle('standard')" id="style-standard" class="px-2 py-1 rounded-lg bg-cyan-500 text-neutral-950 transition">Clásico</button>
                     <button onclick="setMapTileStyle('dark')" id="style-dark" class="px-2 py-1 rounded-lg text-neutral-300 hover:text-white transition">Oscuro</button>
                     <button onclick="setMapTileStyle('offline')" id="style-offline" class="px-2 py-1 rounded-lg text-neutral-300 hover:text-white transition">Offline</button>
                 </div>
 
-                <!-- Indicador de Velocidad -->
                 <div class="bg-neutral-950/90 border border-cyan-500/40 text-cyan-400 px-2.5 py-1 rounded-xl text-[11px] font-black shadow-2xl pointer-events-auto flex items-center gap-1">
                     <i data-lucide="gauge" class="w-3.5 h-3.5"></i>
                     <span id="speed-indicator">0.0 km/h</span>
@@ -170,7 +194,7 @@
 
             <div id="map" class="w-full flex-1 absolute inset-0 z-0 bg-slate-900"></div>
 
-            <!-- Cursor del Mapa (Crosshair central) -->
+            <!-- Cursor central -->
             <div id="map-cursor-center" class="absolute inset-0 m-auto w-7 h-7 pointer-events-none z-20 flex items-center justify-center text-cyan-400 opacity-90">
                 <div class="w-6 h-6 rounded-full border-2 border-cyan-400/70 flex items-center justify-center">
                     <div class="w-1.5 h-1.5 bg-cyan-400 rounded-full"></div>
@@ -234,7 +258,6 @@
                 </div>
             </div>
 
-            <!-- Selector de rutas guardadas -->
             <div class="flex items-center gap-2">
                 <select id="route-selector-dropdown" onchange="cambiarRutaActiva(this.value)" class="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl p-2.5 text-xs text-white font-bold focus:outline-none"></select>
             </div>
@@ -274,9 +297,8 @@
             <div id="routes-list-container" class="space-y-2.5"></div>
         </section>
 
-        <!-- AGENDA & POS INVENTORY VIEW (INDEPENDIENTE POR ROL) -->
+        <!-- AGENDA VIEW -->
         <section id="view-agenda" class="p-3.5 space-y-3.5 hidden flex-1 bg-neutral-950">
-            <!-- Solo visible para Autovendedor Independiente -->
             <div id="agenda-tabs-header" class="flex bg-neutral-900 p-1.5 rounded-2xl border border-neutral-800 text-xs font-bold">
                 <button onclick="switchAgendaTab('clients')" id="agenda-tab-clients" class="flex-1 py-2.5 rounded-xl bg-cyan-500 text-neutral-950 transition font-black">Clientes (Agenda)</button>
                 <button onclick="switchAgendaTab('inventory')" id="agenda-tab-inventory" class="flex-1 py-2.5 rounded-xl text-neutral-300 hover:text-white transition">Inventario POS 📦</button>
@@ -305,7 +327,7 @@
             </div>
         </section>
 
-        <!-- FINANCES / CASH VIEW -->
+        <!-- FINANCES VIEW -->
         <section id="view-finances" class="p-3.5 space-y-3.5 hidden flex-1 bg-neutral-950">
             <div class="bg-neutral-900 border border-cyan-500/30 rounded-3xl p-4 shadow-xl space-y-3.5">
                 <div class="flex justify-between items-center border-b border-neutral-800 pb-3">
@@ -400,7 +422,7 @@
         </section>
     </main>
 
-    <!-- BOTTOM NAVBAR (OPTIMIZADA PARA PULGARES MÓVILES Y RESALTE ACTIVO CLARO) -->
+    <!-- BOTTOM NAVBAR -->
     <nav class="bg-neutral-900/95 border-t border-neutral-800 fixed bottom-0 left-0 right-0 z-40 max-w-lg mx-auto shadow-2xl pb-[env(safe-area-inset-bottom)]">
         <div id="navbar-buttons" class="grid grid-cols-4 py-1.5 px-1">
             <button onclick="switchTab('map')" id="nav-btn-map" class="flex flex-col items-center justify-center text-cyan-400 transition py-1.5">
@@ -427,7 +449,6 @@
         <div class="bg-neutral-900 border border-cyan-500/40 w-full max-w-sm rounded-3xl p-5 space-y-3.5 shadow-2xl text-xs max-h-[90dvh] overflow-y-auto">
             <h3 id="modal-profile-title" class="font-black text-sm text-cyan-400 flex items-center gap-2">👤 Editar Información del Perfil</h3>
             
-            <!-- Campos comunes -->
             <div class="space-y-2.5">
                 <div>
                     <label class="text-neutral-400 font-bold block mb-1">Nombre Completo</label>
@@ -439,7 +460,6 @@
                 </div>
             </div>
 
-            <!-- Campos SOLO para Conductor de Flota -->
             <div id="profile-fields-fleet" class="hidden space-y-2.5 pt-2 border-t border-neutral-800">
                 <div>
                     <label class="text-cyan-400 font-bold block mb-1">Placa / Identificación del Vehículo</label>
@@ -451,7 +471,6 @@
                 </div>
             </div>
 
-            <!-- Campos SOLO para Supervisor -->
             <div id="profile-fields-supervisor" class="hidden space-y-2.5 pt-2 border-t border-neutral-800">
                 <div>
                     <label class="text-amber-400 font-bold block mb-1">Cargo / Rol de Supervisión</label>
@@ -463,7 +482,6 @@
                 </div>
             </div>
 
-            <!-- Campos SOLO para Autovendedor Independiente (Mi Emprendimiento) -->
             <div id="profile-fields-independent" class="hidden space-y-2.5 pt-2 border-t border-neutral-800">
                 <div class="text-[11px] font-black text-emerald-400 uppercase tracking-wider">🏪 Datos de Mi Emprendimiento (Para Recibos POS)</div>
                 <div>
@@ -487,7 +505,7 @@
         </div>
     </div>
 
-    <!-- MODAL RECIBO PERSONALIZADO (AUTOVENTA) -->
+    <!-- MODAL RECIBO PERSONALIZADO -->
     <div id="modal-receipt" class="fixed inset-0 bg-neutral-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white text-neutral-900 w-full max-w-sm rounded-3xl p-5 space-y-3.5 shadow-2xl text-xs font-mono max-h-[90dvh] overflow-y-auto">
             <div class="text-center border-b-2 border-dashed border-neutral-300 pb-3 space-y-1">
@@ -604,7 +622,6 @@
                 <option value="rejected">❌ Rechazado / Sin Entrega</option>
             </select>
 
-            <!-- Solo para Autoventa -->
             <div id="pos-cart-box" class="space-y-2.5 bg-neutral-950 p-3.5 rounded-2xl border border-emerald-500/30">
                 <div class="flex justify-between items-center">
                     <span class="text-emerald-400 font-black uppercase text-[11px]">🛒 Carrito POS / Productos</span>
@@ -617,7 +634,6 @@
                 </div>
             </div>
 
-            <!-- Solo para Conductor de Flota (valor cobro contraentrega opcional) -->
             <div id="fleet-cod-box" class="hidden space-y-1.5">
                 <label class="text-neutral-400 font-bold block">Valor Recaudado en Entrega ($ - Opcional)</label>
                 <input type="number" id="fleet-cod-amount" placeholder="0" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
@@ -677,11 +693,12 @@
 
     <div id="modal-parada" class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="bg-neutral-900 border border-cyan-500/30 w-full max-w-sm rounded-3xl p-5 space-y-3.5 shadow-2xl text-xs">
-            <h3 class="font-black text-sm text-cyan-400">Añadir Parada en el Mapa</h3>
-            <input type="text" id="parada-nombre" placeholder="Nombre del Cliente o Punto" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
-            <input type="text" id="parada-direccion" placeholder="Dirección o Coordenadas" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <h3 class="font-black text-sm text-cyan-400">Añadir Parada & Crear Cliente en Agenda</h3>
+            <input type="text" id="parada-nombre" placeholder="Nombre del Negocio o Cliente" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <input type="text" id="parada-direccion" placeholder="Dirección" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
+            <input type="text" id="parada-telefono" placeholder="Teléfono / WhatsApp (Opcional)" class="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-white">
             <div class="flex gap-2.5 pt-1">
-                <button onclick="guardarNuevaParada()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black">Guardar</button>
+                <button onclick="guardarNuevaParadaYCliente()" class="flex-1 bg-cyan-500 text-neutral-950 py-3.5 rounded-xl font-black">Guardar & Registrar</button>
                 <button onclick="document.getElementById('modal-parada').classList.add('hidden')" class="flex-1 bg-neutral-800 text-neutral-300 py-3.5 rounded-xl font-bold">Cancelar</button>
             </div>
         </div>
