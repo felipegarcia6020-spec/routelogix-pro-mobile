@@ -1,6 +1,7 @@
 // RouteLogix Pro Enterprise v32 - Marcadores Numéricos, Navegación Waze y Sincronización Automática con Agenda
 
-const APP_STORAGE_KEY = 'routelogix_v32_state_v7';
+const APP_STORAGE_KEY = 'routelogix_pro_master_db';
+const LEGACY_KEYS = ['routelogix_v32_state_v7', 'routelogix_v32_state_v6', 'routelogix_v32_state_v5', 'routelogix_v32_state'];
 
 let appState = {
     driver: {
@@ -36,6 +37,39 @@ let appState = {
 let map = null;
 let currentTileLayer = null;
 let routePolyline = null;
+
+let realRoadGeometry = null;
+let realRoadMetrics = { km: null, mins: null };
+
+async function fetchOSRMRoute(stopsList, startCoords) {
+    if (!stopsList || stopsList.length === 0) {
+        realRoadGeometry = null;
+        realRoadMetrics = { km: 0, mins: 0 };
+        return;
+    }
+    try {
+        const points = [startCoords, ...stopsList.map(s => [s.lat, s.lng])];
+        // OSRM usa formato lng,lat
+        const coordsParam = points.map(p => `${p[1]},${p[0]}`).join(';');
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordsParam}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+            const routeData = data.routes[0];
+            // Convertimos [lng, lat] de GeoJSON a [lat, lng] de Leaflet
+            realRoadGeometry = routeData.geometry.coordinates.map(c => [c[1], c[0]]);
+            realRoadMetrics = {
+                km: (routeData.distance / 1000).toFixed(1),
+                mins: Math.round(routeData.duration / 60 + stopsList.length * 5)
+            };
+        } else {
+            realRoadGeometry = null;
+        }
+    } catch (e) {
+        realRoadGeometry = null;
+    }
+}
+
 let stopMarkers = [];
 let userMarker = null;
 let watchId = null;
@@ -116,7 +150,18 @@ function setupNetworkListeners() {
 }
 
 function loadAppState() {
-    const raw = localStorage.getItem(APP_STORAGE_KEY);
+    let raw = localStorage.getItem(APP_STORAGE_KEY);
+    // Migración automática: si no existe la llave maestra, rescatar datos de versiones anteriores
+    if (!raw) {
+        for (const oldKey of LEGACY_KEYS) {
+            const legacyRaw = localStorage.getItem(oldKey);
+            if (legacyRaw) {
+                raw = legacyRaw;
+                localStorage.setItem(APP_STORAGE_KEY, legacyRaw);
+                break;
+            }
+        }
+    }
     if (raw) {
         try {
             const parsed = JSON.parse(raw);
@@ -622,11 +667,19 @@ function compartirInformeWhatsApp() {
 
 function compartirRutaActiva() {
     const route = getActiveRoute();
-    const payload = JSON.stringify({ routeExport: route }, null, 2);
+    const payload = JSON.stringify({
+        routeExport: route,
+        fullBackup: {
+            clients: appState.clients,
+            inventory: appState.inventory,
+            routes: appState.routes,
+            driver: appState.driver
+        }
+    }, null, 2);
     const blob = new Blob([payload], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${route.name.toLowerCase().replace(/\s+/g, '-')}-routelogix.json`;
+    a.download = `respaldo-routelogix-${new Date().toISOString().slice(0,10)}.json`;
     a.click();
 }
 
@@ -637,6 +690,18 @@ function importarRutaJSON(event) {
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
+            if (data.fullBackup) {
+                if (Array.isArray(data.fullBackup.clients)) appState.clients = data.fullBackup.clients;
+                if (Array.isArray(data.fullBackup.inventory)) appState.inventory = data.fullBackup.inventory;
+                if (Array.isArray(data.fullBackup.routes) && data.fullBackup.routes.length > 0) {
+                    appState.routes = data.fullBackup.routes;
+                    appState.activeRouteId = appState.routes[0].id;
+                }
+                saveAppState();
+                renderAllViews();
+                alert('✅ Respaldo completo restaurado (Rutas, Clientes e Inventario).');
+                return;
+            }
             const imported = data.routeExport || data;
             if (imported && Array.isArray(imported.stops)) {
                 const newId = 'route-' + Date.now();
@@ -722,6 +787,7 @@ function getActiveRoute() {
 }
 
 function cambiarRutaActiva(routeId) {
+    realRoadGeometry = null;
     appState.activeRouteId = routeId;
     saveAppState();
     renderAllViews();
@@ -740,6 +806,7 @@ function abrirModalParadaCentro() {
 
 // Sincronización Automática: Al guardar nueva parada, se crea en la ruta Y en la agenda de clientes
 function guardarNuevaParadaYCliente() {
+    realRoadGeometry = null;
     const name = document.getElementById('parada-nombre').value.trim();
     const address = document.getElementById('parada-direccion').value.trim();
     const phone = document.getElementById('parada-telefono').value.trim();
@@ -784,6 +851,7 @@ function abrirModalClienteExistente() {
 }
 
 function agregarClienteARuta(clientId) {
+    realRoadGeometry = null;
     const c = appState.clients.find(x => x.id === clientId);
     if (!c) return;
     const center = map ? map.getCenter() : { lat: lastKnownCoords[0], lng: lastKnownCoords[1] };
@@ -796,6 +864,7 @@ function agregarClienteARuta(clientId) {
 }
 
 function eliminarParada(stopId) {
+    realRoadGeometry = null;
     const route = getActiveRoute();
     route.stops = route.stops.filter(s => s.id !== stopId);
     saveAppState();
@@ -806,11 +875,43 @@ function navegarExterno(lat, lng) {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
 }
 
-// Optimizador IA (Vecino más cercano)
-function optimizarRutaInteligente() {
+// Optimizador IA Vial Real (OSRM Trip API / Matriz de distancias viales reales)
+async function optimizarRutaInteligente() {
     const route = getActiveRoute();
     if (route.stops.length < 2) return alert('Añade al menos 2 paradas para optimizar la ruta.');
-    
+
+    try {
+        // Usamos OSRM Trip API partiendo de nuestra ubicación GPS actual (roundtrip=false, source=first)
+        const points = [lastKnownCoords, ...route.stops.map(s => [s.lat, s.lng])];
+        const coordsParam = points.map(p => `${p[1]},${p[0]}`).join(';');
+        const url = `https://router.project-osrm.org/trip/v1/driving/${coordsParam}?source=first&roundtrip=false&overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.code === 'Ok' && data.waypoints && data.trips && data.trips.length > 0) {
+            // Waypoints[0] es el origen GPS; los demás corresponden a route.stops
+            const indexedStops = route.stops.map((stop, idx) => {
+                const wp = data.waypoints[idx + 1];
+                return { stop, waypointIndex: wp ? wp.waypoint_index : idx + 1 };
+            });
+            indexedStops.sort((a, b) => a.waypointIndex - b.waypointIndex);
+            route.stops = indexedStops.map(item => item.stop);
+
+            const tripData = data.trips[0];
+            realRoadGeometry = tripData.geometry.coordinates.map(c => [c[1], c[0]]);
+            realRoadMetrics = {
+                km: (tripData.distance / 1000).toFixed(1),
+                mins: Math.round(tripData.duration / 60 + route.stops.length * 5)
+            };
+
+            saveAppState();
+            renderAllViews();
+            alert(`⚡ Ruta vial más corta calculada sobre calles reales (${realRoadMetrics.km} km • ~${realRoadMetrics.mins} min).`);
+            return;
+        }
+    } catch (e) {}
+
+    // Respaldo offline si no hay internet
     const unvisited = [...route.stops];
     const ordered = [];
     let currentLat = lastKnownCoords[0];
@@ -833,13 +934,17 @@ function optimizarRutaInteligente() {
     }
 
     route.stops = ordered;
+    realRoadGeometry = null;
     saveAppState();
     renderAllViews();
-    alert('⚡ Ruta optimizada por proximidad geográfica.');
+    alert('⚡ Ruta optimizada (Modo Offline).');
 }
 
 function calcularMetricasRuta(stops) {
-    if (!stops || stops.length === 0) return { km: 0, mins: 0 };
+    if (!stops || stops.length === 0) return { km: '0.0', mins: 0 };
+    if (realRoadMetrics.km !== null && realRoadGeometry) {
+        return realRoadMetrics;
+    }
     let totalKm = 0;
     let prevLat = lastKnownCoords[0];
     let prevLng = lastKnownCoords[1];
@@ -853,17 +958,17 @@ function calcularMetricasRuta(stops) {
     return { km: totalKm.toFixed(1), mins: Math.round(totalKm * 2.5 + stops.length * 5) };
 }
 
-// --- RENDERIZAR MARCADORES NUMÉRICOS EN EL MAPA ---
-function renderMapMarkersAndRoute() {
+// --- RENDERIZAR MARCADORES NUMÉRICOS Y TRAZADO VIAL REAL EN EL MAPA ---
+async function renderMapMarkersAndRoute() {
     if (!map || typeof L === 'undefined') return;
     stopMarkers.forEach(m => map.removeLayer(m));
     stopMarkers = [];
     if (routePolyline) map.removeLayer(routePolyline);
 
     const route = getActiveRoute();
-    const coords = [];
+    const straightCoords = [lastKnownCoords];
     route.stops.forEach((stop, idx) => {
-        coords.push([stop.lat, stop.lng]);
+        straightCoords.push([stop.lat, stop.lng]);
         const num = idx + 1;
         const colorBg = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
         
@@ -881,8 +986,33 @@ function renderMapMarkersAndRoute() {
         stopMarkers.push(marker);
     });
 
-    if (coords.length > 1) {
-        routePolyline = L.polyline(coords, { color: '#06b6d4', weight: 4, opacity: 0.8 }).addTo(map);
+    if (route.stops.length > 0) {
+        // Consultar geometría vial real sobre calles (OSRM)
+        await fetchOSRMRoute(route.stops, lastKnownCoords);
+        if (routePolyline) map.removeLayer(routePolyline);
+
+        if (realRoadGeometry && realRoadGeometry.length > 1) {
+            routePolyline = L.polyline(realRoadGeometry, {
+                color: '#06b6d4',
+                weight: 5,
+                opacity: 0.9,
+                lineJoin: 'round'
+            }).addTo(map);
+            // Actualizar tarjetas de distancia y tiempo reales en vista de Rutas
+            const metrics = calcularMetricasRuta(route.stops);
+            const kmEl = document.getElementById('metric-km');
+            const timeEl = document.getElementById('metric-time');
+            if (kmEl) kmEl.textContent = `${metrics.km} km`;
+            if (timeEl) timeEl.textContent = `${metrics.mins} min`;
+        } else if (straightCoords.length > 1) {
+            // Respaldo visual punteado únicamente si no hay conexión a internet
+            routePolyline = L.polyline(straightCoords, {
+                color: '#06b6d4',
+                weight: 3,
+                opacity: 0.6,
+                dashArray: '6, 8'
+            }).addTo(map);
+        }
     }
 }
 
