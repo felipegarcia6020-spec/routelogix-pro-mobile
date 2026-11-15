@@ -35,9 +35,8 @@ let appState = {
 };
 
 let map = null;
-let currentTileLayer = null;
-let routePolyline = null;
-
+let isMapStyleLoaded = false;
+let routeGeoJsonSourceReady = false;
 let realRoadGeometry = null;
 let realRoadMetrics = { km: null, mins: null };
 
@@ -49,15 +48,13 @@ async function fetchOSRMRoute(stopsList, startCoords) {
     }
     try {
         const points = [startCoords, ...stopsList.map(s => [s.lat, s.lng])];
-        // OSRM usa formato lng,lat
         const coordsParam = points.map(p => `${p[1]},${p[0]}`).join(';');
         const url = `https://router.project-osrm.org/route/v1/driving/${coordsParam}?overview=full&geometries=geojson`;
         const res = await fetch(url);
         const data = await res.json();
         if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
             const routeData = data.routes[0];
-            // Convertimos [lng, lat] de GeoJSON a [lat, lng] de Leaflet
-            realRoadGeometry = routeData.geometry.coordinates.map(c => [c[1], c[0]]);
+            realRoadGeometry = routeData.geometry.coordinates; // MapLibre usa [lng, lat] directamente
             realRoadMetrics = {
                 km: (routeData.distance / 1000).toFixed(1),
                 mins: Math.round(routeData.duration / 60 + stopsList.length * 5)
@@ -427,7 +424,7 @@ function startGpsWatch() {
             updateWazeNavigationBanner(lat, lng);
 
             if (isGpsTrackingActive && map) {
-                map.setView([lat, lng], map.getZoom());
+                map.easeTo({ center: [lng, lat], duration: 500 });
             }
         },
         () => {
@@ -447,13 +444,20 @@ function updateGpsStatus(text, active) {
 }
 
 function updateUserMarker(lat, lng) {
-    if (!map || typeof L === 'undefined') return;
+    if (!map || typeof maplibregl === 'undefined') return;
     if (!userMarker) {
-        userMarker = L.circleMarker([lat, lng], {
-            radius: 8, fillColor: '#06b6d4', color: '#ffffff', weight: 2, fillOpacity: 1
-        }).addTo(map);
+        const el = document.createElement('div');
+        el.style.width = '18px';
+        el.style.height = '18px';
+        el.style.borderRadius = '50%';
+        el.style.backgroundColor = '#06b6d4';
+        el.style.border = '3px solid #ffffff';
+        el.style.boxShadow = '0 0 14px rgba(6, 182, 212, 0.9)';
+        userMarker = new maplibregl.Marker({ element: el })
+            .setLngLat([lng, lat])
+            .addTo(map);
     } else {
-        userMarker.setLatLng([lat, lng]);
+        userMarker.setLngLat([lng, lat]);
     }
 }
 
@@ -520,7 +524,57 @@ function toggleGpsTracking() {
 }
 
 function centrarGPS() {
-    if (map) map.setView(lastKnownCoords, 16);
+    if (map) {
+        map.flyTo({
+            center: [lastKnownCoords[1], lastKnownCoords[0]],
+            zoom: 16.5,
+            speed: 1.4
+        });
+    }
+}
+
+function resetNorthAndPitch() {
+    if (!map) return;
+    map.easeTo({
+        bearing: 0,
+        pitch: 0,
+        duration: 450
+    });
+}
+
+function toggleMapPitch3D() {
+    if (!map) return;
+    const currentPitch = map.getPitch();
+    const targetPitch = currentPitch > 20 ? 0 : 52;
+    map.easeTo({
+        pitch: targetPitch,
+        duration: 450
+    });
+}
+
+function updateCompassCardinalUI() {
+    if (!map) return;
+    const bearing = map.getBearing(); // -180 a 180
+    const pitch = Math.round(map.getPitch());
+    const dial = document.getElementById('compass-dial-ring');
+    if (dial) {
+        dial.style.transform = `rotate(${-bearing}deg)`;
+    }
+    const normalizedDeg = Math.round(((bearing % 360) + 360) % 360);
+    const dirs = ['Norte', 'Noreste', 'Este', 'Sureste', 'Sur', 'Suroeste', 'Oeste', 'Noroeste'];
+    const dirIdx = Math.round(normalizedDeg / 45) % 8;
+    const headingEl = document.getElementById('heading-cardinal-label');
+    if (headingEl) {
+        headingEl.textContent = `${dirs[dirIdx]} (${normalizedDeg}°)`;
+    }
+    const pitchEl = document.getElementById('pitch-angle-label');
+    const btn3d = document.getElementById('btn-toggle-3d');
+    if (pitchEl) {
+        pitchEl.textContent = pitch > 10 ? `Vista 3D (${pitch}°)` : `Vista 2D (${pitch}°)`;
+    }
+    if (btn3d) {
+        btn3d.textContent = pitch > 10 ? '2D' : '3D';
+    }
 }
 
 // --- CAMBIO PIN SUPERVISOR ---
@@ -722,16 +776,128 @@ function importarRutaJSON(event) {
     reader.readAsText(file);
 }
 
-// --- MAPA ---
-function initMapSafe() {
-    if (map) { map.invalidateSize(); return; }
-    if (typeof L === 'undefined') return;
-    map = L.map('map', { zoomControl: false, attributionControl: false }).setView(lastKnownCoords, 15);
-    setMapTileStyle(appState.mapStyle || 'standard');
-    renderMapMarkersAndRoute();
+// --- MAPA VECTORIAL / RÁSTER INTERACTIVO (MAPLIBRE GL JS: PINCH ZOOM, ROTACIÓN 360°, INCLINACIÓN 3D) ---
+function buildMapLibreRasterStyle(styleMode) {
+    const tileUrls = styleMode === 'dark'
+        ? [
+            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+          ]
+        : [
+            'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          ];
+
+    return {
+        version: 8,
+        sources: {
+            'base-raster-tiles': {
+                type: 'raster',
+                tiles: tileUrls,
+                tileSize: 256,
+                maxzoom: 19
+            }
+        },
+        layers: [
+            {
+                id: 'base-raster-layer',
+                type: 'raster',
+                source: 'base-raster-tiles',
+                minzoom: 0,
+                maxzoom: 22
+            }
+        ]
+    };
 }
 
-function setMapTileStyle(style) {
+function initMapSafe() {
+    if (map) {
+        map.resize();
+        return;
+    }
+    if (typeof maplibregl === 'undefined') return;
+
+    const initialStyle = appState.mapStyle || 'standard';
+    map = new maplibregl.Map({
+        container: 'map',
+        style: buildMapLibreRasterStyle(initialStyle),
+        center: [lastKnownCoords[1], lastKnownCoords[0]],
+        zoom: 15.5,
+        bearing: 0,
+        pitch: 0,
+        maxPitch: 70,
+        dragRotate: true,
+        touchZoomRotate: true,
+        touchPitch: true,
+        doubleClickZoom: true,
+        scrollZoom: true,
+        attributionControl: false
+    });
+
+    // Activar rotación y zoom táctil multitáctil completo (estilo Google Maps)
+    map.touchZoomRotate.enable();
+    map.touchPitch.enable();
+
+    // Actualizar brújula y puntos cardinales en tiempo real al rotar o inclinar el mapa
+    map.on('rotate', updateCompassCardinalUI);
+    map.on('pitch', updateCompassCardinalUI);
+    map.on('dragstart', () => {
+        // Si el usuario explora manualmente el mapa, pausamos el auto-centrado GPS para que no le devuelva la vista
+        if (isGpsTrackingActive) {
+            isGpsTrackingActive = false;
+            const btn = document.getElementById('gps-tracking-toggle-btn');
+            if (btn) {
+                btn.className = 'w-11 h-11 bg-neutral-900/95 hover:bg-neutral-800 border border-neutral-700 rounded-2xl flex items-center justify-center text-neutral-400 shadow-2xl transition';
+            }
+        }
+    });
+
+    map.on('load', () => {
+        isMapStyleLoaded = true;
+        setupRouteLineLayer();
+        renderMapMarkersAndRoute();
+        updateUserMarker(lastKnownCoords[0], lastKnownCoords[1]);
+        updateCompassCardinalUI();
+    });
+
+    setMapTileStyle(initialStyle, true);
+}
+
+function setupRouteLineLayer() {
+    if (!map) return;
+    if (!map.getSource('active-route-source')) {
+        map.addSource('active-route-source', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: [] }
+            }
+        });
+    }
+    if (!map.getLayer('active-route-outline')) {
+        map.addLayer({
+            id: 'active-route-outline',
+            type: 'line',
+            source: 'active-route-source',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#030712', 'line-width': 8, 'line-opacity': 0.75 }
+        });
+    }
+    if (!map.getLayer('active-route-line')) {
+        map.addLayer({
+            id: 'active-route-line',
+            type: 'line',
+            source: 'active-route-source',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#06b6d4', 'line-width': 5, 'line-opacity': 0.95 }
+        });
+    }
+    routeGeoJsonSourceReady = true;
+}
+
+function setMapTileStyle(style, skipStyleReload = false) {
     appState.mapStyle = style;
     saveAppState();
     ['standard', 'dark', 'offline'].forEach(s => {
@@ -742,12 +908,13 @@ function setMapTileStyle(style) {
                 : 'px-2 py-1 rounded-lg text-neutral-300 hover:text-white transition';
         }
     });
-    if (!map || typeof L === 'undefined') return;
-    if (currentTileLayer) map.removeLayer(currentTileLayer);
-    const url = style === 'dark'
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    currentTileLayer = L.tileLayer(url, { maxZoom: 19 }).addTo(map);
+    if (!map || skipStyleReload) return;
+    routeGeoJsonSourceReady = false;
+    map.setStyle(buildMapLibreRasterStyle(style));
+    map.once('styledata', () => {
+        setupRouteLineLayer();
+        renderMapMarkersAndRoute();
+    });
 }
 
 async function searchMapAddress() {
@@ -758,7 +925,11 @@ async function searchMapAddress() {
         const results = await res.json();
         if (results && results.length > 0 && map) {
             isGpsTrackingActive = false;
-            map.setView([parseFloat(results[0].lat), parseFloat(results[0].lon)], 17);
+            map.flyTo({
+                center: [parseFloat(results[0].lon), parseFloat(results[0].lat)],
+                zoom: 17,
+                speed: 1.4
+            });
         }
     } catch (e) {}
 }
@@ -782,7 +953,7 @@ function switchTab(tab) {
         }
     });
 
-    if (tab === 'map' && map) setTimeout(() => map.invalidateSize(), 120);
+    if (tab === 'map' && map) setTimeout(() => map.resize(), 120);
     renderAllViews();
 }
 
@@ -902,7 +1073,7 @@ async function optimizarRutaInteligente() {
             route.stops = indexedStops.map(item => item.stop);
 
             const tripData = data.trips[0];
-            realRoadGeometry = tripData.geometry.coordinates.map(c => [c[1], c[0]]);
+            realRoadGeometry = tripData.geometry.coordinates;
             realRoadMetrics = {
                 km: (tripData.distance / 1000).toFixed(1),
                 mins: Math.round(tripData.duration / 60 + route.stops.length * 5)
@@ -962,60 +1133,66 @@ function calcularMetricasRuta(stops) {
     return { km: totalKm.toFixed(1), mins: Math.round(totalKm * 2.5 + stops.length * 5) };
 }
 
-// --- RENDERIZAR MARCADORES NUMÉRICOS Y TRAZADO VIAL REAL EN EL MAPA ---
+// --- RENDERIZAR MARCADORES NUMÉRICOS Y TRAZADO VIAL REAL EN EL MAPA (MAPLIBRE GL) ---
 async function renderMapMarkersAndRoute() {
-    if (!map || typeof L === 'undefined') return;
-    stopMarkers.forEach(m => map.removeLayer(m));
+    if (!map || typeof maplibregl === 'undefined') return;
+    stopMarkers.forEach(m => m.remove());
     stopMarkers = [];
-    if (routePolyline) map.removeLayer(routePolyline);
 
     const route = getActiveRoute();
-    const straightCoords = [lastKnownCoords];
+    const straightCoordsLngLat = [[lastKnownCoords[1], lastKnownCoords[0]]];
+
     route.stops.forEach((stop, idx) => {
-        straightCoords.push([stop.lat, stop.lng]);
+        straightCoordsLngLat.push([stop.lng, stop.lat]);
         const num = idx + 1;
         const colorBg = stop.status === 'delivered' ? '#10b981' : stop.status === 'rejected' ? '#f43f5e' : '#06b6d4';
-        
-        // Crear icono HTML personalizado con número visible
-        const numberedIcon = L.divIcon({
-            className: 'custom-numbered-marker',
-            html: `<div style="background-color: ${colorBg}; color: #030712; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; border: 2px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">${num}</div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-        });
 
-        const marker = L.marker([stop.lat, stop.lng], { icon: numberedIcon })
-            .bindPopup(`<strong>Parada #${num}: ${stop.name}</strong><br>${stop.address}<br>Estado: <b>${stop.status.toUpperCase()}</b>`)
+        const el = document.createElement('div');
+        el.innerHTML = `<div style="background-color: ${colorBg}; color: #030712; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; border: 2.5px solid #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.6); cursor: pointer;">${num}</div>`;
+
+        const popup = new maplibregl.Popup({ offset: 18 }).setHTML(
+            `<strong>Parada #${num}: ${stop.name}</strong><br><span style="color:#9ca3af">${stop.address}</span><br>Estado: <b>${stop.status.toUpperCase()}</b>`
+        );
+
+        const marker = new maplibregl.Marker({ element: el })
+            .setLngLat([stop.lng, stop.lat])
+            .setPopup(popup)
             .addTo(map);
         stopMarkers.push(marker);
     });
 
     if (route.stops.length > 0) {
-        // Consultar geometría vial real sobre calles (OSRM)
         await fetchOSRMRoute(route.stops, lastKnownCoords);
-        if (routePolyline) map.removeLayer(routePolyline);
-
+        if (!routeGeoJsonSourceReady && map.isStyleLoaded()) {
+            setupRouteLineLayer();
+        }
+        const source = map.getSource('active-route-source');
+        if (source) {
+            const lineCoords = (realRoadGeometry && realRoadGeometry.length > 1)
+                ? realRoadGeometry
+                : straightCoordsLngLat;
+            source.setData({
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: lineCoords
+                }
+            });
+        }
         if (realRoadGeometry && realRoadGeometry.length > 1) {
-            routePolyline = L.polyline(realRoadGeometry, {
-                color: '#06b6d4',
-                weight: 5,
-                opacity: 0.9,
-                lineJoin: 'round'
-            }).addTo(map);
-            // Actualizar tarjetas de distancia y tiempo reales en vista de Rutas
             const metrics = calcularMetricasRuta(route.stops);
             const kmEl = document.getElementById('metric-km');
             const timeEl = document.getElementById('metric-time');
             if (kmEl) kmEl.textContent = `${metrics.km} km`;
             if (timeEl) timeEl.textContent = `${metrics.mins} min`;
-        } else if (straightCoords.length > 1) {
-            // Respaldo visual punteado únicamente si no hay conexión a internet
-            routePolyline = L.polyline(straightCoords, {
-                color: '#06b6d4',
-                weight: 3,
-                opacity: 0.6,
-                dashArray: '6, 8'
-            }).addTo(map);
+        }
+    } else {
+        const source = map.getSource('active-route-source');
+        if (source) {
+            source.setData({
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: [] }
+            });
         }
     }
 }
@@ -1369,7 +1546,7 @@ async function startDownloadingRouteMapTiles() {
     const countEl = document.getElementById('offline-tiles-count');
     if (countEl) countEl.textContent = `Descargando ${urls.length} cuadrantes...`;
     try {
-        const cache = await caches.open('routelogix-offline-core-v10');
+        const cache = await caches.open('routelogix-offline-core-v11');
         let okCount = 0;
         await Promise.allSettled(
             urls.map(u => fetch(u).then(r => { if (r.ok) { okCount++; return cache.put(u, r); } }))

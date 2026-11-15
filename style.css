@@ -8,21 +8,23 @@ html, body {
   margin: 0;
   padding: 0;
   overscroll-behavior-y: none;
-  touch-action: manipulation;
   background-color: #030712;
   color: #f3f4f6;
   overflow: hidden;
 }
+/* Permitir gestos multitáctiles nativos (pellizco, rotación con 2 dedos, inclinación 3D) dentro del mapa */
+#map, #map canvas {
+  touch-action: none !important;
+  outline: none;
+}
 input, select, textarea, button {
-  font-size: 16px !important; /* Evita el zoom automático molesto en iOS y Android */
+  font-size: 16px !important;
 }
 @media (min-width: 640px) {
   input, select, textarea, button {
     font-size: 14px !important;
   }
 }
-
-/* Ajuste responsivo para barras flotantes en pantallas móviles estrechas */
 @media (max-width: 380px) {
   #map-controls-subbar {
     flex-wrap: wrap;
@@ -32,8 +34,6 @@ input, select, textarea, button {
     padding: 8px 10px;
   }
 }
-
-/* Scrollbars discretos en móvil */
 ::-webkit-scrollbar {
   width: 3px;
   height: 3px;
@@ -42,9 +42,24 @@ input, select, textarea, button {
   background: #374151;
   border-radius: 999px;
 }
-
-/* Mosaico Offline sintético cuando no hay red ni tiles cacheados */
-.leaflet-container {
+.maplibregl-canvas-container {
   background: #0b1120 !important;
-  font-family: inherit !important;
+}
+.maplibregl-popup-content {
+  background: #111827 !important;
+  color: #f9fafb !important;
+  border: 1px solid rgba(6, 182, 212, 0.4) !important;
+  border-radius: 14px !important;
+  padding: 10px 12px !important;
+  font-size: 12px !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.7) !important;
+}
+.maplibregl-popup-tip {
+  border-top-color: #111827 !important;
+  border-bottom-color: #111827 !important;
+}
+.maplibregl-popup-close-button {
+  color: #9ca3af !important;
+  font-size: 16px !important;
+  padding: 4px 8px !important;
 }

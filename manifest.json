@@ -2,7 +2,7 @@
   "id": "com.routelogix.pro.enterprise",
   "name": "RouteLogix Pro Enterprise",
   "short_name": "RouteLogix",
-  "description": "Plataforma logística, autoventa POS y control de flota 100% Offline.",
+  "description": "Plataforma logística, autoventa POS, mapas vectoriales 3D y control de flota 100% Offline.",
   "start_url": "./index.html?source=pwa",
   "scope": "./",
   "display": "standalone",
