@@ -1,4 +1,3 @@
-
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -10,12 +9,42 @@ html, body {
   padding: 0;
   overscroll-behavior-y: none;
   touch-action: manipulation;
+  background-color: #030712;
+  color: #f3f4f6;
+  overflow: hidden;
 }
 input, select, textarea, button {
-  font-size: 16px;
+  font-size: 16px !important; /* Evita el zoom automático molesto en iOS y Android */
 }
 @media (min-width: 640px) {
   input, select, textarea, button {
-    font-size: inherit;
+    font-size: 14px !important;
   }
+}
+
+/* Ajuste responsivo para barras flotantes en pantallas móviles estrechas */
+@media (max-width: 380px) {
+  #map-controls-subbar {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  #waze-nav-banner {
+    padding: 8px 10px;
+  }
+}
+
+/* Scrollbars discretos en móvil */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 999px;
+}
+
+/* Mosaico Offline sintético cuando no hay red ni tiles cacheados */
+.leaflet-container {
+  background: #0b1120 !important;
+  font-family: inherit !important;
 }

@@ -466,6 +466,8 @@ function updateWazeNavigationBanner(currentLat, currentLng) {
     if (!banner) return;
     if (pendingStops.length === 0) {
         banner.classList.add('hidden');
+        const subbar = document.getElementById('map-controls-subbar');
+        if (subbar) subbar.style.top = '3.6rem';
         return;
     }
 
@@ -488,6 +490,8 @@ function updateWazeNavigationBanner(currentLat, currentLng) {
     document.getElementById('nav-step-eta').textContent = `~${etaMins} min`;
     document.getElementById('nav-next-stop-title').textContent = `Parada #${stopIndex}: ${nextStop.name}`;
     banner.classList.remove('hidden');
+    const subbar = document.getElementById('map-controls-subbar');
+    if (subbar) subbar.style.top = '7.8rem';
 }
 
 function abrirNavegacionExternaActual() {
@@ -1174,6 +1178,7 @@ function renderAllViews() {
     renderInventoryPOSView();
     renderFinancesView();
     renderMapMarkersAndRoute();
+    updateWazeNavigationBanner(lastKnownCoords[0], lastKnownCoords[1]);
     initIconsSafe();
 }
 
@@ -1345,7 +1350,34 @@ function createNewRoute() {
     renderAllViews();
 }
 function openOfflineDownloadModal() { document.getElementById('modal-offline-download').classList.remove('hidden'); }
-function startDownloadingRouteMapTiles() {
-    alert('✅ Mosaicos de la zona actual cacheados para operación offline.');
+async function startDownloadingRouteMapTiles() {
+    if (!map) return;
+    const center = map.getCenter();
+    const zooms = [14, 15, 16];
+    const urls = [];
+    zooms.forEach(z => {
+        const latRad = center.lat * Math.PI / 180;
+        const n = Math.pow(2, z);
+        const cx = Math.floor((center.lng + 180) / 360 * n);
+        const cy = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+        for (let dx = -2; dx <= 2; dx++) {
+            for (let dy = -2; dy <= 2; dy++) {
+                urls.push(`https://tile.openstreetmap.org/${z}/${cx + dx}/${cy + dy}.png`);
+            }
+        }
+    });
+    const countEl = document.getElementById('offline-tiles-count');
+    if (countEl) countEl.textContent = `Descargando ${urls.length} cuadrantes...`;
+    try {
+        const cache = await caches.open('routelogix-offline-core-v10');
+        let okCount = 0;
+        await Promise.allSettled(
+            urls.map(u => fetch(u).then(r => { if (r.ok) { okCount++; return cache.put(u, r); } }))
+        );
+        if (countEl) countEl.textContent = `${okCount} cuadrantes listos Offline`;
+        alert(`✅ ${okCount} bloques de mapa descargados. Ya puedes navegar 100% sin señal.`);
+    } catch (e) {
+        alert('⚠️ Error al descargar mosaicos. Verifica tu conexión.');
+    }
     document.getElementById('modal-offline-download').classList.add('hidden');
 }
